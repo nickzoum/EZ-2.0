@@ -1,0 +1,16 @@
+{
+    "name": "ez",
+    "version": "2.0.0",
+    "description": "",
+    "author": "ez4pp",
+    "license": "ISC",
+    "scripts": {
+        "build": "node build.js"
+    },
+    "dependencies": {
+        "babel-minify": "^0.5.0",
+        "recast": "^0.18.2"
+    },
+    "debugMode": "On",
+    "exportMode": "Global"
+}

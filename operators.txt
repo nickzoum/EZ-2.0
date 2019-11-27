@@ -1,0 +1,46 @@
+█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
+█ Operator          █ Description                                                                           █ Order █
+█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
+█ (...)             █ grouping                                                                              █  20   █
+█ ... . ...         █ member access, decimal point                                                          █  19   █
+█ [...]             █ computed member access                                                                █  19   █
+█ ... ?. ...        █ optional chaining                                                                     █  19   █
+█ ! ...             █ logical not                                                                           █  16   █
+█ + ...             █ unary plus                                                                            █  16   █
+█ - ...             █ unary negation                                                                        █  16   █
+█ typeof ...        █ typeof                                                                                █  16   █
+█ ... ** ...        █ exponentiation                                                                        █  15   █
+█ ... * ...         █ multiplication                                                                        █  14   █
+█ ... / ...         █ division                                                                              █  14   █
+█ ... % ...         █ remainder                                                                             █  14   █
+█ ... + ...         █ addition                                                                              █  13   █
+█ ... - ...         █ subtraction                                                                           █  13   █
+█ ... < ...         █ less than                                                                             █  11   █
+█ ... <= ...        █ less than or equal                                                                    █  11   █
+█ ... > ...         █ greater than                                                                          █  11   █
+█ ... >= ...        █ greater than or equal                                                                 █  11   █ 
+█ ... in ...        █ in                                                                                    █  11   █
+█ ... instanceof ...█ instanceof                                                                            █  11   █
+█ ... == ...        █ equality                                                                              █  10   █
+█ ... != ...        █ inequality                                                                            █  10   █
+█ ... === ...       █ strict equality                                                                       █  10   █
+█ ... !== ...       █ strict inequality                                                                     █  10   █
+█ ... & ...         █ bitwise and                                                                           █   9   █
+█ ... ^ ...         █ bitwise xor                                                                           █   8   █
+█ ... | ...         █ bitwise or                                                                            █   7   █
+█ ... && ...        █ logical and                                                                           █   6   █
+█ ... || ...        █ logical or                                                                            █   5   █
+█ ... ? ... : ...   █ conditional                                                                           █   4   █
+█ ... of ...        █ of (ez-loop)                                                                          █   1   █
+█ ... in ...        █ in (ez-loop)                                                                          █   1   █
+█ ... , ...         █ format seperation                                                                     █   1   █
+█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
+
+█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
+█ Quotes                                                                                                            █
+█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
+█ "                             █ quote (starting and closing quote must be the same)                               █
+█ '                             █ quote (starting and closing quote must be the same)                               █
+█ `                             █ quote (starting and closing quote must be the same, doesn't allow interpolation)  █
+█ \                             █ escape quote                                                                      █
+█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
