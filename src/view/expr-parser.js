@@ -321,7 +321,7 @@ ezDefine("Parser", function (exports) {
                         },
                         "Property": function () {
                             goUp(19);
-                            // todo check ]
+                            // TODO check ]
                         },
                         "Expression": function () {
 

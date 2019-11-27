@@ -6,13 +6,15 @@ if (undefined) var Expressions = require("../ez").Expressions;
 
 ezDefine("View", function (exports) {
 
-    // todo cache control header, public, 60*60*24*10
-    // todo make trees private and map with id
+    // TODO cache control header, public, 60*60*24*10
 
     var specialClasses = ["loop", "let", "pass", "if"];
     var tempDom = document.createElement("div");
 
+    var treeCounterID = 0;
+
     var views = {};
+    var trees = {};
 
     exports.registerView = registerView;
     addMutationListener();
@@ -24,7 +26,7 @@ ezDefine("View", function (exports) {
                     if (dom instanceof HTMLElement && dom.tagName in views) createView(dom, views[dom.tagName].tree, views[dom.tagName].controller);
                 });
                 if (change.removedNodes instanceof Array) change.removedNodes.forEach(function () {
-                    //todo
+                    // TODO
                 });
             });
         }, document.body, false, true);
@@ -86,14 +88,14 @@ ezDefine("View", function (exports) {
             var domList = createDom(newController, tree, dependencies);
             Mutation.addListener(newController, function (target, property, type, value, path) {
                 if (type === "get") return;
-                // todo smooth array
+                // TODO smooth array
                 var fullPath = (path ? path + "." : "") + property;
                 if (fullPath in dependencies || "this" in dependencies) {
                     dependencies[fullPath].concat(dependencies["this"]).forEach(function (node) {
                         if (node instanceof Node) {
-                            node.textContent = Expressions.evaluateValue(newController, node.tree);
+                            node.textContent = Expressions.evaluateValue(newController, trees[node.treeID]);
                         } else if (node instanceof Attr) {
-                            node.value = Expressions.evaluateValue(newController, node.tree);
+                            node.value = Expressions.evaluateValue(newController, trees[node.treeID]);
                         }
                     });
                 }
@@ -127,7 +129,7 @@ ezDefine("View", function (exports) {
                 for (var key in scope.attributes) dom.setAttribute(key, scope.attributes[key]);
                 for (key in scope.ezAttributes) {
                     if (key.startsWith("on-")) {
-                        // todo implement functions and event listeners
+                        // TODO implement functions and event listeners
                     } else {
                         if (specialClasses.includes(key)) {
                             dom.setAttribute("ez-" + key, scope.ezAttributes[key].map(function (item) { return item.text; }).join(","));
@@ -135,7 +137,8 @@ ezDefine("View", function (exports) {
                         } else if (scope.ezAttributes[key][0].text) {
                             dom.setAttribute("ez-" + key, scope.ezAttributes[key][0].text);
                             var attribute = document.createAttribute(key);
-                            Mutation.setTree(attribute, scope.ezAttributes[key][0]);
+                            trees[++treeCounterID] = scope.ezAttributes[key][0];
+                            Mutation.setTree(attribute, treeCounterID);
                             dom.setAttributeNode(attribute);
                             scope.ezAttributes[key][0].dependencies.forEach(function (dependency) {
                                 dependencies[dependency] = dependencies[dependency] || [];
@@ -149,7 +152,8 @@ ezDefine("View", function (exports) {
             },
             "Expression": function () {
                 var text = new Text();
-                Mutation.setTree(text, tree);
+                trees[++treeCounterID] = tree;
+                Mutation.setTree(text, treeCounterID);
                 tree.dependencies.forEach(function (dependency) {
                     dependencies[dependency] = dependencies[dependency] || [];
                     dependencies[dependency].push(text);

@@ -31,7 +31,7 @@ ezDefine("Mutation", function (exports) {
      * @param {JSDoc.EZExpression} tree 
      */
     function setTree(node, tree) {
-        Object.defineProperty(node, "tree", {
+        Object.defineProperty(node, "treeID", {
             configurable: false,
             enumerable: false,
             writable: false,
