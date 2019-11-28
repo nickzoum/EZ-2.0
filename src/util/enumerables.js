@@ -66,6 +66,23 @@ ezDefine("Enumerables", function (exports) {
         }
     }
 
+    /**
+     * Creates an array with numeric items, starting from `start` and ending at `end`
+     * @param {number} start first element of array
+     * @param {number} end last element of array
+     * @returns {Array<number>}
+     */
+    function createSequence(start, end) {
+        if (typeof start !== "number" || typeof end !== "number") throw Error("Start and end parameters must be numbers");
+        start = Math.floor(start);
+        end = Math.floor(end);
+        var result = [];
+        if (end >= start) while (start <= end) result.push(start++);
+        else while (start >= end) result.push(start--);
+        return result;
+    }
+
+    exports.createSequence = createSequence;
     exports.isEnumerable = isEnumerable;
     exports.flattenArray = flattenArray;
     exports.toArray = toArray;

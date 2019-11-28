@@ -18,6 +18,7 @@ ezDefine("Parser", function (exports) {
             "<=": 11,
             ">": 11,
             ">=": 11,
+            "of": 11,
             "in": 11,
             "instanceof": 11,
             "==": 10,
@@ -100,8 +101,9 @@ ezDefine("Parser", function (exports) {
                     (actionMap[scope.type] || syntax).call(actionMap);
                 },
                 ")": function () {
-                    var actionMap = {
+                    var innerMap = {
                         "Expression": function () {
+                            if (!scope.parent || scope.parent.type === "Property") throw Error("Unexpected closing parenthesis ')'");
                             sortExpression();
                             goUp();
                         },
@@ -109,9 +111,13 @@ ezDefine("Parser", function (exports) {
                             goUp(19);
                             this.Expression();
                         },
-                        "TextLiteral": onDefault
+                        "TextLiteral": onDefault,
+                        "Property": function () {
+                            goUp();
+                            actionMap[")"]();
+                        }
                     };
-                    (actionMap[scope.type] || syntax).call(actionMap);
+                    (innerMap[scope.type] || syntax).call(innerMap);
                 },
                 "+": function () {
                     if (!onConversion("+")) onArithmetic("+");
@@ -265,16 +271,23 @@ ezDefine("Parser", function (exports) {
                     index += fullText.length - 1;
                 },
                 "[": function () {
-
+                    if (scope.type === "TextLiteral") return onDefault();
+                    this["."]("[");
+                    scope = {
+                        type: "Expression",
+                        parent: scope,
+                        start: index,
+                        content: []
+                    };
+                    scope.parent.content = scope;
                 },
                 "]": function () {
-                    // TODO Check goup
-                    ({
-                        "Property": function () {
-                            // TODO
-                        },
-                        "TextLiteral": onDefault
-                    }[scope.type] || syntax)();
+                    if (scope.type === "TextLiteral") return onDefault();
+                    while (scope && scope.type !== "Expression") goUp();
+                    if (!scope || scope.type !== "Expression") throw Error("Unexpected closing parenthesis ')'");
+                    sortExpression();
+                    goUp();
+                    goUp();
                 },
                 ",": function () {
                     if (scope.type === "TextLiteral") return onDefault();
@@ -285,14 +298,15 @@ ezDefine("Parser", function (exports) {
                     sortExpression();
                     scope.dependencies = Object.keys(dependencies);
                     scope.end = index;
-                    var scope = {
+                    scope = {
                         type: "Expression",
                         start: index + 1,
                         content: [],
                         text: ""
                     };
                     scopeList.push(scope);
-                    var dependencies = {};
+                    dependencies = {};
+                    char = "";
                 },
                 ":": function () {
                     onArithmetic(":");
@@ -430,6 +444,8 @@ ezDefine("Parser", function (exports) {
                         end: index + text.length
                     });
                     index += text.length - 1;
+                    char = "";
+                    scopeList[scopeList.length - 1].text += text;
                     return true;
                 }
             };
@@ -468,7 +484,8 @@ ezDefine("Parser", function (exports) {
                     }
                 }
             };
-            return (actionMap[scope.type] || syntax).call(actionMap);
+            if (scope.type in actionMap) return actionMap[scope.type]();
+            return false;
         }
 
         function onDefault() {
@@ -513,6 +530,7 @@ ezDefine("Parser", function (exports) {
         function syntax() {
             console.log(scope.type);
             console.log(pageText[index]);
+            console.log(pageText[index] + pageText[index + 1] + pageText[index + 2]);
             throw SyntaxError("Error at index " + index + " '" + pageText.substring(index - 5, index + 5) + "'");
         }
 
@@ -520,16 +538,15 @@ ezDefine("Parser", function (exports) {
             if (!scope.parent) throw SyntaxError("Unexpected expression closing character " + pageText[index]);
             if (scope.type === "Property" && scope.parent.type !== "Parameter") dependencies[scope.content] = 0;
             else if (scope.type === "Parameter") {
-                if (scope.content[0].type !== "Property") dependencies["this"] = 0;
-                else {
-                    var index = 0;
+                if (scope.content[0].type === "Property") {
+                    var i = 0;
                     var list = [];
-                    do {
-                        var item = scope.content[index];
+                    var item = scope.content[0];
+                    while (item && item.type === "Property" && item.accessor !== "[") {
                         list.push(item.content);
                         dependencies[list.join(".")] = 0;
-                        index += 1;
-                    } while (index < scope.content.length && item.type === "Property");
+                        item = scope.content[++i];
+                    }
                 }
             }
             scope.end = index;

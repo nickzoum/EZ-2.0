@@ -12,9 +12,11 @@ ezDefine("View", function (exports) {
     var tempDom = document.createElement("div");
 
     var treeCounterID = 0;
+    var scopeCounterID = 0;
 
     var views = {};
     var trees = {};
+    var scopes = {};
 
     exports.registerView = registerView;
     addMutationListener();
@@ -70,14 +72,14 @@ ezDefine("View", function (exports) {
      * @param {JSDoc.ViewController} controller 
      */
     function createView(container, tree, controller) {
-        /** @type {} */
+        // TODO dependencies garbage collection
         var dependencies = {};
         var newController = Mutation.deepClone(controller);
         if (typeof newController.construct === "function") {
-            if (container.hasAttribute("ez-pass") && "tree" in container) {
-                var paramList = container.tree.ezAttributes.pass;
+            if (container.hasAttribute("ez-pass") && "treeID" in container) {
+                var tagTree = trees[container.treeID], paramList = tagTree.pass;
                 paramList = paramList instanceof Array ? paramList : [paramList];
-                paramList = paramList.map(function (param) { return Expressions.evaluateValue(newController, param); });
+                paramList = paramList.map(function (param) { return Expressions.evaluateValue(tagTree.controller, param); });
                 var promise = newController.construct.apply(newController, paramList);
             } else promise = newController.construct();
             if (promise instanceof Promise) return promise.finally(initDom);
@@ -88,43 +90,71 @@ ezDefine("View", function (exports) {
             var domList = createDom(newController, tree, dependencies);
             Mutation.addListener(newController, function (target, property, type, value, path) {
                 if (type === "get") return;
-                // TODO smooth array
                 var fullPath = (path ? path + "." : "") + property;
-                if (fullPath in dependencies || "this" in dependencies) {
-                    dependencies[fullPath].concat(dependencies["this"]).forEach(function (node) {
-                        if (node instanceof Node) {
-                            node.textContent = Expressions.evaluateValue(newController, trees[node.treeID]);
-                        } else if (node instanceof Attr) {
-                            node.value = Expressions.evaluateValue(newController, trees[node.treeID]);
-                        }
-                    });
-                }
+                if (fullPath in dependencies) dependencies[fullPath].forEach(evaluateNode);
             });
             (domList instanceof Array ? domList : [domList]).forEach(function (dom) {
                 container.appendChild(dom);
             });
             if (typeof newController.onLoad === "function") newController.onLoad();
         }
+
+        function evaluateNode(node) {
+            var tree = trees[node.treeID];
+            var scope = "scopeID" in node ? scopes[node.scopeID] : null;
+            if (node instanceof Node) {
+                if ("type" in tree) {
+                    if (node.parentElement instanceof HTMLElement) {
+                        node.textContent = Expressions.evaluateValue(newController, tree, scope);
+                    }
+                } else {
+                    manageLoop(newController, dependencies, node.treeID);
+                }
+            } else if (node instanceof Attr) {
+                if (node.ownerElement instanceof HTMLElement) {
+                    node.value = Expressions.evaluateValue(newController, tree, scope);
+                }
+            }
+        }
     }
 
     /**
      * 
+     * @param {JSDoc.ViewController} controller
      * @param {JSDoc.HTMLContent | JSDoc.HTMLScope} tree 
+     * @param {[index: string]: Array<Node | Attr>} dependencies
+     * @param {[index: string]: *} innerScope
      * @returns {HTMLElement | Array<HTMLElement>}
      */
-    function createDom(controller, tree, dependencies) {
-        if (tree instanceof Array) return tree.map(function (subTree) { return createDom(controller, subTree, dependencies); });
+    function createDom(controller, tree, dependencies, innerScope) {
+        if (tree instanceof Array) return tree.map(function (subTree) { return createDom(controller, subTree, dependencies, innerScope); });
         return ({
             "HTMLContent": function () {
                 /** @type {JSDoc.HTMLContent} */
                 var content = tree;
                 return content.content.map(function (item) {
-                    return typeof item === "string" ? new Text(item) : createDom(controller, item, dependencies);
-                });
+                    return typeof item === "string" ? new Text(item) : createDom(controller, item, dependencies, innerScope);
+                }).filter(Boolean);
             },
             "Scope": function () {
                 /** @type {JSDoc.HTMLScope} */
                 var scope = tree;
+                if (typeof scope.ezAttributes.loop !== "string" && scope.ezAttributes.loop) {
+                    var placeHolder = new Text();
+                    trees[++treeCounterID] = {
+                        loop: scope.ezAttributes.loop,
+                        placeHolder: placeHolder,
+                        children: [],
+                        scope: scope
+                    };
+                    Mutation.setTree(placeHolder, treeCounterID);
+                    var listName = scope.ezAttributes.loop[0].text.replace(/^\s*[^\s]+\s+of\s+/, "");
+                    dependencies[listName] = dependencies[listName] || [];
+                    dependencies[listName].push(placeHolder);
+                    scope.ezAttributes.loop = scope.ezAttributes.loop[0].text;
+                    setTimeout(manageLoop.bind(null, controller, dependencies, treeCounterID), 0);
+                    return placeHolder;
+                }
                 var dom = document.createElement(scope.name);
                 for (var key in scope.attributes) dom.setAttribute(key, scope.attributes[key]);
                 for (key in scope.ezAttributes) {
@@ -132,14 +162,28 @@ ezDefine("View", function (exports) {
                         // TODO implement functions and event listeners
                     } else {
                         if (specialClasses.includes(key)) {
-                            dom.setAttribute("ez-" + key, scope.ezAttributes[key].map(function (item) { return item.text; }).join(","));
-                            // TODO
+                            if (typeof scope.ezAttributes[key] === "string") {
+                                dom.setAttribute("ez-" + key, scope.ezAttributes[key]);
+                            } else {
+                                dom.setAttribute("ez-" + key, scope.ezAttributes[key].map(function (item) { return item.text; }).join(","));
+                                ({
+                                    "pass": function () {
+                                        trees[++treeCounterID] = {
+                                            pass: scope.ezAttributes[key],
+                                            controller: controller
+                                        };
+                                        Mutation.setTree(dom, treeCounterID);
+                                    }
+                                }[key])();
+                                // TODO
+                            }
                         } else if (scope.ezAttributes[key][0].text) {
                             dom.setAttribute("ez-" + key, scope.ezAttributes[key][0].text);
                             var attribute = document.createAttribute(key);
                             trees[++treeCounterID] = scope.ezAttributes[key][0];
                             Mutation.setTree(attribute, treeCounterID);
                             dom.setAttributeNode(attribute);
+                            attribute.value = Expressions.evaluateValue(controller, scope.ezAttributes[key][0], innerScope);
                             scope.ezAttributes[key][0].dependencies.forEach(function (dependency) {
                                 dependencies[dependency] = dependencies[dependency] || [];
                                 dependencies[dependency].push(attribute);
@@ -147,13 +191,14 @@ ezDefine("View", function (exports) {
                         }
                     }
                 }
-                if (scope.text) dom.append.apply(dom, createDom(controller, scope.text, dependencies));
+                if (scope.text) dom.append.apply(dom, createDom(controller, scope.text, dependencies, innerScope));
                 return dom;
             },
             "Expression": function () {
                 var text = new Text();
                 trees[++treeCounterID] = tree;
                 Mutation.setTree(text, treeCounterID);
+                text.textContent = Expressions.evaluateValue(controller, tree, innerScope);
                 tree.dependencies.forEach(function (dependency) {
                     dependencies[dependency] = dependencies[dependency] || [];
                     dependencies[dependency].push(text);
@@ -161,6 +206,69 @@ ezDefine("View", function (exports) {
                 return text;
             }
         }[tree.type])();
+    }
+
+    /**
+     * 
+     * @param {JSDoc.ViewController} controller
+     * @param {[index: string]: Array<Node | Attr>} dependencies
+     * @param {number} treeID 
+     * @returns {void}
+     */
+    function manageLoop(controller, dependencies, treeID) {
+        // TODO check order and sort (efficiency)
+        var tree = trees[treeID];
+        /** @type {JSDoc.EZExpression} */
+        var loop = tree.loop;
+        /** @type {Comment} */
+        var placeHolder = tree.placeHolder;
+        /** @type {JSDoc.HTMLScope} */
+        var scope = tree.scope;
+        /** @type {Array<{item: *, domList: HTMLElement | Array<HTMLElement>}>} */
+        var children = tree.scope;
+
+        var itemName = loop[0].content[0].left.content;
+        var listName = loop[0].text.replace(/^\s*[^\s]+\s+of\s+/, "");
+        var previous = placeHolder;
+        var list = Expressions.evaluateValue(controller, loop[0].content[0].right);
+        for (var index = 0; index < list.length; index++) {
+            if (!children[index] || list[index] !== children[index].item) {
+                if (children[index] && children[index].domList) {
+                    (children[index].domList instanceof Array ? children[index].domList : [children[index].domList]).forEach(function (node) {
+                        node.remove();
+                    });
+                }
+                var innerScope = {};
+                scopes[++scopeCounterID] = innerScope;
+                innerScope[itemName] = list[index];
+                var innerDependencies = {};
+                var newDom = createDom(controller, scope, innerDependencies, innerScope);
+                children[index] = { item: list[index], domList: newDom };
+                (newDom instanceof Array ? newDom : [newDom]).forEach(function (newDom) {
+                    var ref = previous.nextSibling;
+                    if (ref) previous.parentElement.insertBefore(newDom, ref);
+                    else previous.parentElement.append(newDom);
+                    previous = newDom;
+                });
+                for (var dependency in innerDependencies) {
+                    if (dependency.substring(0, itemName.length) === itemName) {
+                        dependencies[listName + "." + index + dependency.substring(itemName.length)] = innerDependencies[dependency].map(function (node) {
+                            Mutation.setScope(node, scopeCounterID);
+                        });
+                    } else {
+                        dependencies[dependency] = innerDependencies[dependency];
+                    }
+                }
+            } else {
+                if (children[index].domList) {
+                    (children[index].domList instanceof Array ? children[index].domList : [children[index].domList]).forEach(function (node) {
+                        previous = node;
+                    });
+                }
+            }
+        }
+
+        tree.children = children;
     }
 
 });

@@ -1,5 +1,5 @@
 /** @typedef {require("../ez")} JSDoc */
-
+// TODO Fix format
 ezDefine("Expressions", function (exports) {
 
     var operations = {
@@ -49,11 +49,13 @@ ezDefine("Expressions", function (exports) {
      * 
      * @param {JSDoc.ViewController} controller 
      * @param {JSDoc.EZExpression} expression 
+     * @param {{[index:string]: *}} [scope]
      */
-    function evaluateValue(controller, expression) {
-        if (typeof expression !== "object") return expression;
+    function evaluateValue(controller, expression, scope) {
+        if (typeof expression !== "object" || expression === null) return expression;
+        if (typeof scope !== "object" || scope === null) scope = {};
         if (expression instanceof Array) return expression.map(function (expr) {
-            return evaluateValue(controller, expr);
+            return evaluateValue(controller, expr, scope);
         });
         return ({
             "Parameter": function () {
@@ -61,22 +63,25 @@ ezDefine("Expressions", function (exports) {
                 for (var index = 0; index < expression.content.length; index++) {
                     var item = expression.content[index];
                     if (item.type === "Property") {
-                        var property = (item.accessor !== "[") ? item.content : evaluateValue(controller, item);
+                        var property = (item.accessor !== "[") ? item.content : evaluateValue(controller, item, scope);
                         result = item.accessor === "?." && !result ? null : result[property];
                     } else {
-                        property = evaluateValue(controller, item);
+                        property = evaluateValue(controller, item, scope);
                         result = index === 0 ? property : result[property];
                     }
                 }
                 return result;
             },
             "Property": function () {
-                return expression.content === "this" ? controller : controller[expression.content];
+                if (typeof expression.content !== "string") return evaluateValue(controller, expression.content, scope);
+                else if (expression.content === "this") return controller;
+                else if (expression.content in scope) return scope[expression.content];
+                else return controller[expression.content];
             },
             "Expression": function () {
                 return ([
                     function () { return null; },
-                    function () { return evaluateValue(controller, expression.content[0]); }
+                    function () { return evaluateValue(controller, expression.content[0], scope); }
                 ][expression.content.length] || function () {
                     throw Error("Unhandled expression");
                 })();
@@ -84,7 +89,7 @@ ezDefine("Expressions", function (exports) {
             "Conversion": function () {
                 var operator = expression.operator.content;
                 if (!(operator in operations)) throw SyntaxError("Unknown conversoin operator " + operator);
-                return converions[operator](evaluateValue(controller, expression.content));
+                return converions[operator](evaluateValue(controller, expression.content, scope));
             },
             "NumberLiteral": function () {
                 return +expression.content;
@@ -95,13 +100,13 @@ ezDefine("Expressions", function (exports) {
             "Operation": function () {
                 var operator = expression.operator.content;
                 if (!(operator in operations)) throw SyntaxError("Unknown operator " + operator);
-                var left = evaluateValue(controller, expression.left);
+                var left = evaluateValue(controller, expression.left, scope);
                 var right = (operator in singleOperations && singleOperations[operator](left)) ?
-                    undefined : evaluateValue(controller, expression.right);
+                    undefined : evaluateValue(controller, expression.right, scope);
                 return operations[operator](left, right);
             },
             "Ternary": function () {
-                return evaluateValue(controller, evaluateValue(controller, expression.condition) ? expression.left : expression.right);
+                return evaluateValue(controller, evaluateValue(controller, expression.condition, scope) ? expression.left : expression.right, scope);
             }
         }[expression.type] || function () {
             throw Error("Invalid expression type");

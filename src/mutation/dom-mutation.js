@@ -1,6 +1,7 @@
 ezDefine("Mutation", function (exports) {
 
     exports.addDomListener = addDomListener;
+    exports.setScope = setScope;
     exports.setTree = setTree;
     return exports;
 
@@ -28,14 +29,28 @@ ezDefine("Mutation", function (exports) {
     /**
      * 
      * @param {Node} node 
-     * @param {JSDoc.EZExpression} tree 
+     * @param {number} treeID 
      */
-    function setTree(node, tree) {
+    function setTree(node, treeID) {
         Object.defineProperty(node, "treeID", {
             configurable: false,
             enumerable: false,
             writable: false,
-            value: tree
+            value: treeID
+        });
+    }
+
+    /**
+     * 
+     * @param {Node} node 
+     * @param {number} scopeID 
+     */
+    function setScope(node, scopeID) {
+        Object.defineProperty(node, "scopeID", {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: scopeID
         });
     }
 

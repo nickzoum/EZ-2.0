@@ -131,8 +131,8 @@ ezDefine("EZ", function () {
     define(Object, "entries", function (obj) {
         return Object.keys(obj).map(function (key) { return [key, obj[key]]; });
     });
-    define(HTMLElement.prototype, "remove", function () {
-        return this.parentElement.removeChild(this);
+    define(Node.prototype, "remove", function () {
+        if (this.parentNode) return this.parentNode.removeChild(this);
     });
     define(Node.prototype, "replaceWith", function () {
         var parent = this.parentNode, index = arguments.length, currentNode;

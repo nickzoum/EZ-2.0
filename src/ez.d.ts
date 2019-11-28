@@ -32,6 +32,14 @@ export namespace Enumerables {
      * @returns {void}
      */
     function forLoop(start: number, end: number, callBack: (index: number, iteration: number) => void): void;
+
+    /**
+     * Creates an array with numeric items, starting from `start` and ending at `end`
+     * @param {number} start first element of array
+     * @param {number} end last element of array
+     * @returns {Array<number>}
+     */
+    function createSequence(start: number, end: number): Array<number>;
 }
 
 export interface EZExpression {
@@ -128,10 +136,18 @@ export namespace Mutation {
     /**
      * 
      * @param {Node} node 
-     * @param {EZExpression} tree 
+     * @param {number} treeID 
      * @returns {void}
      */
-    function setTree(node: Node, tree: EZExpression): void;
+    function setTree(node: Node, treeID: number): void;
+
+    /**
+    * 
+    * @param {Node} node 
+    * @param {number} scopeID 
+    * @returns {void}
+    */
+    function setScope(node: Node, scopeID: number): void;
 }
 
 export namespace Expressions {
@@ -139,9 +155,10 @@ export namespace Expressions {
      * 
      * @param {ViewController} controller 
      * @param {EZExpression} expression 
+     * @param {{[index: string]: *}} [scope]
      * @returns {*}
      */
-    function evaluateValue(controller: ViewController, expression: EZExpression): *;
+    function evaluateValue(controller: ViewController, expression: EZExpression, scope?: { [index: string]: * }): *;
 }
 
 export as namespace JSDoc;

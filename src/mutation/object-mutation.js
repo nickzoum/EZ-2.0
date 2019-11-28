@@ -1,6 +1,8 @@
+if (undefined) var Enumerables = require("../ez").Enumerables;
+
 ezDefine("Mutation", function (exports) {
 
-    var arrayFunctions = ["copyWithin", "fill", "pop", "push", "shift", "unshift", "slice", "sort", "splice"];
+    var arrayFunctions = ["copyWithin", "fill", "pop", "push", "shift", "unshift", "sort", "splice"];
 
     exports.addListener = addListener;
     exports.deepClone = deepClone;
@@ -67,10 +69,15 @@ ezDefine("Mutation", function (exports) {
                     configurable: false,
                     enumerable: false,
                     writable: false,
-                    value: function () { addListener(obj, callBack, path); return oldFunction.apply(this, arguments); }
+                    value: function () {
+                        var result = oldFunction.apply(this, arguments);
+                        addListener(obj, callBack, path);
+                        callBack(obj, path, "set", obj);
+                        return result;
+                    }
                 });
             });
-            var list = "0".repeat(obj.length).split("").map(function (v, i) { return i; });
+            var list = obj.length ? Enumerables.createSequence(0, obj.length - 1) : [];
         } else {
             list = Object.keys(obj);
         }
@@ -98,8 +105,10 @@ ezDefine("Mutation", function (exports) {
                 }
             }
             var fullPath = (path ? (path + ".") : "") + key;
-            Object.defineProperty(obj, key, newProperty);
-            callBack(obj, key, "set", _value, path);
+            if (!(obj instanceof Array)) {
+                Object.defineProperty(obj, key, newProperty);
+                callBack(obj, key, "set", _value, path);
+            }
             if (typeof _value === "object" && _value !== null) {
                 addListener(_value, callBack, fullPath);
             }
