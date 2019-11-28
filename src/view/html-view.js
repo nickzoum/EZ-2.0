@@ -24,10 +24,10 @@ ezDefine("View", function (exports) {
     function addMutationListener() {
         Mutation.addDomListener(function (changes) {
             changes.forEach(function (change) {
-                if (change.addedNodes instanceof Array) change.addedNodes.forEach(function (dom) {
+                change.addedNodes.forEach(function (dom) {
                     if (dom instanceof HTMLElement && dom.tagName in views) createView(dom, views[dom.tagName].tree, views[dom.tagName].controller);
                 });
-                if (change.removedNodes instanceof Array) change.removedNodes.forEach(function () {
+                change.removedNodes.forEach(function () {
                     // TODO
                 });
             });
@@ -77,9 +77,20 @@ ezDefine("View", function (exports) {
         var newController = Mutation.deepClone(controller);
         if (typeof newController.construct === "function") {
             if (container.hasAttribute("ez-pass") && "treeID" in container) {
+                var scope = {};
+                var parent = container;
+                while (parent && (parent === container || !(parent instanceof HTMLUnknownElement))) {
+                    if ("scopeID" in parent) {
+                        var domScope = scopes[parent.scopeID];
+                        for (var property in domScope) {
+                            if (!(property in scope)) scope[property] = domScope[property];
+                        }
+                    }
+                    parent = parent.parentElement;
+                }
                 var tagTree = trees[container.treeID], paramList = tagTree.pass;
                 paramList = paramList instanceof Array ? paramList : [paramList];
-                paramList = paramList.map(function (param) { return Expressions.evaluateValue(tagTree.controller, param); });
+                paramList = paramList.map(function (param) { return Expressions.evaluateValue(tagTree.controller, param, scope); });
                 var promise = newController.construct.apply(newController, paramList);
             } else promise = newController.construct();
             if (promise instanceof Promise) return promise.finally(initDom);
@@ -173,6 +184,17 @@ ezDefine("View", function (exports) {
                                             controller: controller
                                         };
                                         Mutation.setTree(dom, treeCounterID);
+
+                                        var scopes = scope.ezAttributes[key].reduce(function (result, param) {
+                                            param.dependencies.forEach(function (dependency) {
+                                                result[dependency] = 0;
+                                            });
+                                            return result;
+                                        }, {});
+                                        for (var dep in scopes) {
+                                            dependencies[dep] = dependencies[dep] || [];
+                                            dependencies[dep].push(dom);
+                                        }
                                     }
                                 }[key])();
                                 // TODO

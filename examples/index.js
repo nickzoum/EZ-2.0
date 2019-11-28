@@ -4,7 +4,7 @@ View.registerView("test",
     `<div ez-class='a'>\${a + (1+2)} Hello</div>
      <div>\${b?.test }</div>
      \${list.0}\${(1+1+'').length}
-     <div ez-loop='item of list'>\${item}</div>`,
+     <foobar ez-loop='item of list' ez-pass="item"></foobar>`,
     {
         construct: function () {
         },
@@ -29,4 +29,15 @@ View.registerView("test",
         a: 5,
         b: undefined,
         list: []
+    });
+
+View.registerView("foobar",
+    "<div>${text}</div>",
+    {
+        construct: function (text) {
+            this.text = text;
+        },
+        onLoad: function () {
+        },
+        text: undefined
     });
