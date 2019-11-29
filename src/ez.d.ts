@@ -1,10 +1,19 @@
-export namespace Functions {
+export namespace Util {
     /**
      * Coalesce for functions (will return an empty function if none are found)
      * @param {Array<Function>} params List of functions to filter
      * @returns {Function} First valid parameter or empty function
      */
     export function empty(...params: Function): Function;
+
+    /**
+     * More efficient version of `substring(startingIndex).startsWith(searchingFor)` for large strings
+     * @param {string} fullText Large text to look through
+     * @param {number} startingIndex index to start looking at
+     * @param {string} searchingFor text to find
+     * @returns {boolean}
+     */
+    function startsWith(fullText: string, startingIndex: number, searchingFor: string): boolean;
 }
 
 export namespace Enumerables {
@@ -40,6 +49,14 @@ export namespace Enumerables {
      * @returns {Array<number>}
      */
     function createSequence(start: number, end: number): Array<number>;
+
+
+    /**
+     * Gets the property list of an object or array
+     * @param {{}} obj
+     * @returns {Array<string | number>}
+     */
+    function getPropertyList(obj: {}): Array<string | number>;
 }
 
 export interface EZExpression {
@@ -80,6 +97,18 @@ export interface HTMLScope {
     parent: HTMLScope | HTMLContent;
     start: number;
     end: number;
+}
+
+export interface ObjectListenerScope {
+    references: {
+        [pKey: string]: {
+            path: string;
+            callBack: (target: {}, property: string, type: "get" | "set", value: *, path: string) => void;
+        };
+    };
+    children: {
+        [key: string]: ObjectListenerScope;
+    };
 }
 
 export interface ViewController {

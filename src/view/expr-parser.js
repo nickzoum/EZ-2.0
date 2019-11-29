@@ -1,3 +1,5 @@
+if (undefined) var Util = require("../ez").Util;
+
 /** @typedef {import("../ez")} JSDoc */
 
 // TODO [ez-let] to declare complicated variables in html scopes
@@ -126,7 +128,7 @@ ezDefine("Parser", function (exports) {
                     if (!onConversion("-")) onArithmetic("-");
                 },
                 "*": function () {
-                    if (startsWith(pageText, index, "**")) onArithmetic("**");
+                    if (Util.startsWith(pageText, index, "**")) onArithmetic("**");
                     else onArithmetic("*");
                 },
                 "/": function () {
@@ -136,38 +138,38 @@ ezDefine("Parser", function (exports) {
                     onArithmetic("%");
                 },
                 "&": function () {
-                    if (startsWith(pageText, index, "&&")) onArithmetic("&&");
+                    if (Util.startsWith(pageText, index, "&&")) onArithmetic("&&");
                     else onArithmetic("&");
                 },
                 "|": function () {
-                    if (startsWith(pageText, index, "||")) onArithmetic("||");
+                    if (Util.startsWith(pageText, index, "||")) onArithmetic("||");
                     else onArithmetic("|");
                 },
                 "^": function () {
                     onArithmetic("^");
                 },
                 "=": function () {
-                    if (startsWith(pageText, index, "===")) onArithmetic("===");
-                    else if (startsWith(pageText, index, "==")) onArithmetic("==");
+                    if (Util.startsWith(pageText, index, "===")) onArithmetic("===");
+                    else if (Util.startsWith(pageText, index, "==")) onArithmetic("==");
                     else if (scope.type !== "TextLiteral") throw SyntaxError("Single '=' character was found at index " + index);
                 },
                 ">": function () {
-                    if (startsWith(pageText, index, ">=")) onArithmetic(">=");
+                    if (Util.startsWith(pageText, index, ">=")) onArithmetic(">=");
                     else onArithmetic(">");
                 },
                 "<": function () {
-                    if (startsWith(pageText, index, "<=")) onArithmetic("<=");
+                    if (Util.startsWith(pageText, index, "<=")) onArithmetic("<=");
                     else onArithmetic("<");
                 },
                 "?": function () {
-                    if (startsWith(pageText, index, "?.")) return this["."]("?.");
+                    if (Util.startsWith(pageText, index, "?.")) return this["."]("?.");
                     var self = this;
                     var actionMap = {
                         "Property": function () {
                             // TODO
                         },
                         "Parameter": function () {
-                            if (startsWith(pageText, index, "?.")) {
+                            if (Util.startsWith(pageText, index, "?.")) {
                                 scope.content += "?.";
                                 index += 1;
                             } else {
@@ -312,8 +314,8 @@ ezDefine("Parser", function (exports) {
                     onArithmetic(":");
                 },
                 "!": function () {
-                    if (startsWith(pageText, index, "!==")) onArithmetic("!==");
-                    else if (startsWith(pageText, index, "!=")) onArithmetic("!=");
+                    if (Util.startsWith(pageText, index, "!==")) onArithmetic("!==");
+                    else if (Util.startsWith(pageText, index, "!=")) onArithmetic("!=");
                     else if (!onConversion("!", true)) onDefault();
                 },
                 "i": function () {
@@ -433,7 +435,7 @@ ezDefine("Parser", function (exports) {
 
         function onText(text) {
             if (scope.type === "TextLiteral") return false;
-            if (!startsWith(pageText, index, text) || /\w/.test(pageText[index - 1]) || /\w/.test(pageText[index + text.length])) return false;
+            if (!Util.startsWith(pageText, index, text) || /\w/.test(pageText[index - 1]) || /\w/.test(pageText[index + text.length])) return false;
             var actionMap = {
                 "Expression": function () {
                     scope.content.push({
@@ -454,7 +456,7 @@ ezDefine("Parser", function (exports) {
 
         function onConversion(sign, throwError) {
             if (scope.type === "TextLiteral") return false;
-            if (!startsWith(pageText, index, sign) || /\w/.test(pageText[index + sign.length] || "")) return false;
+            if (!Util.startsWith(pageText, index, sign) || /\w/.test(pageText[index + sign.length] || "")) return false;
             var actionMap = {
                 "Conversion": function () {
                     scope = {
@@ -596,20 +598,6 @@ ezDefine("Parser", function (exports) {
                 }
             }
         }
-    }
-
-    /**
-     * More efficient version of `substring(startingIndex).startsWith(searchingFor)` for large strings
-     * @param {string} fullText Large text to look through
-     * @param {number} startingIndex index to start looking at
-     * @param {string} searchingFor text to find
-     * @returns {boolean}
-     */
-    function startsWith(fullText, startingIndex, searchingFor) {
-        for (var index = 0; index < searchingFor.length; index++) {
-            if (fullText[startingIndex + index] !== searchingFor[index]) return false;
-        }
-        return true;
     }
 
 });

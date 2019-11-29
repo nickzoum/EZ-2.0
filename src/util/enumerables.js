@@ -82,6 +82,17 @@ ezDefine("Enumerables", function (exports) {
         return result;
     }
 
+    /**
+     * Gets the property list of an object or array
+     * @param {{}} obj
+     * @returns {Array<string | number>}
+     */
+    function getPropertyList(obj) {
+        if (obj instanceof Array) return obj.length ? createSequence(0, obj.length - 1) : [];
+        else return Object.keys(obj);
+    }
+
+    exports.getPropertyList = getPropertyList;
     exports.createSequence = createSequence;
     exports.isEnumerable = isEnumerable;
     exports.flattenArray = flattenArray;

@@ -239,6 +239,8 @@ ezDefine("View", function (exports) {
      */
     function manageLoop(controller, dependencies, treeID) {
         // TODO check order and sort (efficiency)
+        // TODO in loops
+        // TODO support maps
         var tree = trees[treeID];
         /** @type {JSDoc.EZExpression} */
         var loop = tree.loop;

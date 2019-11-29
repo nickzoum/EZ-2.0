@@ -1,10 +1,21 @@
 if (undefined) var Enumerables = require("../ez").Enumerables;
+if (undefined) var Util = require("../ez").Util;
+
+/** @typedef {require("../ez")} JSDoc */
 
 ezDefine("Mutation", function (exports) {
 
     var arrayFunctions = ["copyWithin", "fill", "pop", "push", "shift", "unshift", "sort", "splice"];
 
-    exports.addListener = addListener;
+    var scopeID = 0;
+
+    /** @type {Map<{}, JSDoc.ObjectListenerScope>} */
+    var referenceMap = new Map();
+
+    exports.addListener = function (obj, callBack) {
+        if (typeof callBack !== "function") return;
+        addListener(obj, callBack, "", function () { return false; }, ++scopeID);
+    };
     exports.deepClone = deepClone;
     return exports;
 
@@ -54,46 +65,71 @@ ezDefine("Mutation", function (exports) {
      * @param {{}} obj
      * @param {(target: {}, property: string, type: "get" | "set", value: *, path: string) => void} callBack
      * @param {Array<string>} [path]
+     * @param {() => boolean} checkParent
+     * @param {number} scopeID
      * @returns {void} 
      */
-    function addListener(obj, callBack, path) {
-        // TODO remove get and set on object removal
+    function addListener(obj, callBack, path, checkParent, scopeID, parentScope, parentKey) {
         if (typeof obj !== "object" || obj === null) return;
-        path = path || "";
-        if (obj instanceof Array) {
-            arrayFunctions.forEach(function (functionName) {
-                var description = Object.getOwnPropertyDescriptor(obj, functionName);
-                if (description && !description.configurable) return;
-                var oldFunction = obj[functionName];
-                Object.defineProperty(obj, functionName, {
-                    configurable: false,
-                    enumerable: false,
-                    writable: false,
-                    value: function () {
-                        var result = oldFunction.apply(this, arguments);
-                        addListener(obj, callBack, path);
-                        callBack(obj, path, "set", obj);
-                        return result;
+        if (checkParent(obj)) return;
+        var fullScope = scopeID + "#" + path;
+        var reference = referenceMap.get(obj);
+        var existed = reference;
+        if (!existed) {
+            reference = {
+                references: {},
+                children: {}
+            };
+            referenceMap.set(obj, reference);
+            addArrayListener(obj, function () {
+                for (var refKey in reference.references) {
+                    if (reference.references[refKey] && typeof reference.references[refKey].callBack === "function") {
+                        reference.references[refKey].callBack(obj, reference.references[refKey].path, "set", obj);
                     }
-                });
+                }
+                refreshProperty(obj);
             });
-            var list = obj.length ? Enumerables.createSequence(0, obj.length - 1) : [];
-        } else {
-            list = Object.keys(obj);
         }
-        list.forEach(function (key) {
-            var oldProperty = Object.getOwnPropertyDescriptor(obj, key);
-            if (oldProperty.configurable === false) return;
+        reference.references[fullScope] = {
+            callBack: callBack,
+            path: path
+        };
+        if (parentScope) parentScope[parentKey] = reference.references[fullScope];
+        Enumerables.getPropertyList(obj).forEach(function (key) {
+            var oldValue = obj[key];
+            if (!(obj instanceof Array) && !existed) addDescriptor(obj, key, oldValue, reference, refreshProperty);
+            addListener(oldValue, callBack, path + (path ? "." : "") + key, childCheckParent, scopeID, reference.children, key);
+        });
+
+        function childCheckParent(otherObj) {
+            return obj === otherObj || checkParent(otherObj);
+        }
+
+        function refreshProperty(newObject) {
+            addListener(newObject, callBack, path, checkParent, scopeID, parentScope, parentKey);
+        }
+    }
+
+    /**
+     * 
+     * @param {{}} obj 
+     * @param {string} key 
+     * @param {*} oldValue 
+     * @param {JSDoc.ObjectListenerScope} reference 
+     * @param {(newObject: *) => void} refreshProperty 
+     */
+    function addDescriptor(obj, key, oldValue, reference, refreshProperty) {
+        var oldProperty = Object.getOwnPropertyDescriptor(obj, key);
+        if (!oldProperty || oldProperty.configurable) {
             var newProperty = {
                 enumerable: true,
                 configurable: false
             };
-            var _value = obj[key];
-            if ("value" in oldProperty) {
-                var oldGet = function () { return _value; };
-                var oldSet = function (newValue) { _value = newValue; };
+            if (!oldProperty || "value" in oldProperty) {
+                var oldGet = function () { return oldValue; };
+                var oldSet = function (newValue) { oldValue = newValue; };
                 newProperty.get = get;
-                if (oldProperty.writable) newProperty.set = set;
+                if (!oldProperty || oldProperty.writable) newProperty.set = set;
             } else {
                 if (typeof oldProperty.get === "function") {
                     oldGet = oldProperty.get;
@@ -104,27 +140,70 @@ ezDefine("Mutation", function (exports) {
                     newProperty.set = set;
                 }
             }
-            var fullPath = (path ? (path + ".") : "") + key;
-            if (!(obj instanceof Array)) {
-                Object.defineProperty(obj, key, newProperty);
-                callBack(obj, key, "set", _value, path);
-            }
-            if (typeof _value === "object" && _value !== null) {
-                addListener(_value, callBack, fullPath);
-            }
+            Object.defineProperty(obj, key, newProperty);
+        }
 
-            function get() {
-                var result = oldGet();
-                callBack(obj, key, "get", result, path);
-                return result;
+        function get() {
+            var result = oldGet();
+            for (var refKey in reference.references) {
+                if (reference.references[refKey] && typeof reference.references[refKey].callBack === "function") {
+                    reference.references[refKey].callBack(obj, key, "get", result, reference.references[refKey].path);
+                }
             }
+            return result;
+        }
 
-            function set(newValue) {
-                oldSet(newValue);
-                callBack(obj, key, "set", newValue, path);
-                if (typeof newValue === "object" && newValue !== null) addListener(newValue, callBack, fullPath);
+        function set(newValue) {
+            var _oldValue = oldValue;
+            oldSet(newValue);
+            if (_oldValue !== newValue) deleteCascade(reference);
+            for (var refKey in reference.references) {
+                if (reference.references[refKey] && typeof reference.references[refKey].callBack === "function") {
+                    reference.references[refKey].callBack(obj, key, "set", newValue, reference.references[refKey].path);
+                }
             }
-        });
+            refreshProperty(newValue);
+        }
+
+        /**
+         * 
+         * @param {JSDoc.ObjectListenerScope} scope 
+         */
+        function deleteCascade(scope) {
+            for (var child in scope.children) {
+                deleteCascade(scope.children[child]);
+                for (var refKey in scope.children[child].references) {
+                    scope.children[child].references[refKey].callBack = null;
+                }
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {*} obj 
+     * @param {*} callBack 
+     * @returns {}
+     */
+    function addArrayListener(obj, callBack) {
+        if (obj instanceof Array) {
+            arrayFunctions.forEach(function (functionName) {
+                if (!(functionName in Array.prototype)) return;
+                var description = Object.getOwnPropertyDescriptor(obj, functionName);
+                if (description && !description.configurable) return;
+                var oldFunction = obj[functionName];
+                Object.defineProperty(obj, functionName, {
+                    configurable: false,
+                    enumerable: false,
+                    writable: false,
+                    value: function () {
+                        var result = oldFunction.apply(this, arguments);
+                        callBack();
+                        return result;
+                    }
+                });
+            });
+        }
     }
 
 });
