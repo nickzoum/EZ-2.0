@@ -1,9 +1,9 @@
 if (undefined) var Enumerables = require("../ez").Enumerables;
-if (undefined) var Util = require("../ez").Util;
 
 /** @typedef {require("../ez")} JSDoc */
 
 ezDefine("Mutation", function (exports) {
+    "use strict";
 
     var arrayFunctions = ["copyWithin", "fill", "pop", "push", "shift", "unshift", "sort", "splice"];
 
@@ -17,6 +17,7 @@ ezDefine("Mutation", function (exports) {
         addListener(obj, callBack, "", function () { return false; }, ++scopeID);
     };
     exports.deepClone = deepClone;
+    exports.setValue = setValue;
     return exports;
 
     /**
@@ -26,6 +27,8 @@ ezDefine("Mutation", function (exports) {
      */
     function deepClone(oldObject) {
         if (typeof oldObject !== "object" || oldObject === null) return oldObject;
+        if (oldObject instanceof Array) return oldObject.map(deepClone);
+        if (oldObject[key] instanceof Date) return new Date(+oldObject);
         var newObject = {};
         for (var key in oldObject) {
             ({
@@ -84,10 +87,11 @@ ezDefine("Mutation", function (exports) {
             addArrayListener(obj, function () {
                 for (var refKey in reference.references) {
                     if (reference.references[refKey] && typeof reference.references[refKey].callBack === "function") {
-                        reference.references[refKey].callBack(obj, reference.references[refKey].path, "set", obj);
+                        reference.references[refKey].callBack(obj, null, "set", obj, reference.references[refKey].path);
                     }
                 }
-                refreshProperty(obj);
+                // refreshProperty(obj);
+                // TODO removed refreshProperty check if correct
             });
         }
         reference.references[fullScope] = {
@@ -105,8 +109,8 @@ ezDefine("Mutation", function (exports) {
             return obj === otherObj || checkParent(otherObj);
         }
 
-        function refreshProperty(newObject) {
-            addListener(newObject, callBack, path, checkParent, scopeID, parentScope, parentKey);
+        function refreshProperty(newValue, key) {
+            addListener(newValue, callBack, path + (path ? "." : "") + key, childCheckParent, scopeID, reference.children, key);
         }
     }
 
@@ -162,7 +166,7 @@ ezDefine("Mutation", function (exports) {
                     reference.references[refKey].callBack(obj, key, "set", newValue, reference.references[refKey].path);
                 }
             }
-            refreshProperty(newValue);
+            refreshProperty(newValue, key);
         }
 
         /**
@@ -204,6 +208,22 @@ ezDefine("Mutation", function (exports) {
                 });
             });
         }
+    }
+
+    /**
+     * Sets the value of an object and makes it immutable
+     * @param {{}} obj object to add property to
+     * @param {string} key name of property
+     * @param {*} value value of property to be added
+     * @returns {obj} initial object
+     */
+    function setValue(obj, key, value) {
+        return Object.defineProperty(obj, key, {
+            value: value,
+            configurable: false,
+            writable: false,
+            enumerable: false
+        }), obj;
     }
 
 });

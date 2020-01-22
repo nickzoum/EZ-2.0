@@ -4,7 +4,7 @@ export namespace Util {
      * @param {Array<Function>} params List of functions to filter
      * @returns {Function} First valid parameter or empty function
      */
-    export function empty(...params: Function): Function;
+    export function empty(...params: Array<Function>): Function;
 
     /**
      * More efficient version of `substring(startingIndex).startsWith(searchingFor)` for large strings
@@ -14,6 +14,67 @@ export namespace Util {
      * @returns {boolean}
      */
     function startsWith(fullText: string, startingIndex: number, searchingFor: string): boolean;
+
+
+    /**
+     * Gets a specified object from a json
+     * @param {T} prototype specified object prototype
+     * @param {string | T} json json string
+     * @template T prototype object or function
+     * @returns {T} parsed json as prototype object
+     */
+    function getModel<T>(prototype: T, json: string | T): T;
+}
+
+export namespace Http {
+    interface RequestPromise {
+        addProgressListener: (callBack: (event: ProgressEvent<EventTarget>) => void) => RequestPromise;
+        then: (onDone: (result: string) => void) => RequestPromise;
+        catch: (onError: (error: string) => void) => RequestPromise;
+        finally: (onDone: () => void) => RequestPromise;
+        abort: () => RequestPromise;
+        promise: Promise<string>;
+    }
+
+    /**
+     * Deletes all of the cookies
+     * @returns {void}
+     */
+    function deleteAllCookies(): void;
+    /**
+     * Deletes a cookie
+     * @param {string} name name of cookie
+     * @returns {void}
+     */
+    function deleteCookieByName(name: string): void;
+    /**
+     * Gets the value of a cookie
+     * @param {string} name name of cookie
+     * @returns {string} value of cookie
+     */
+    function getCookieByName(name: string): string;
+    /**
+     * Creates/Updates a cookie
+     * @param {string} name name of cookie
+     * @param {string} value value of cookie
+     * @returns {void}
+     */
+    function setCookie(name: string, value: string): void;
+    /**
+     * Sends a post request
+     * @param {string} url Where the request is going to be sent
+     * @param {object} [data] The data that are going to be sent
+     * @param {HttpOptions} options optional options for the request / headers
+     * @returns {RequestPromise} Promise that is activated when the request is loaded
+     */
+    function post(url: string, data?: Object, options?: HttpOptions): RequestPromise;
+    /**
+     * Sends a get request
+     * @param {string} url Where the request is going to be sent
+     * @param {HttpOptions} options optional options for the request / headers
+     * @returns {RequestPromise} Promise that is activated when the request is loaded
+     */
+    function get(url: string, options?: HttpOptions): RequestPromise;
 }
 
 export namespace Enumerables {
@@ -33,6 +94,13 @@ export namespace Enumerables {
      * @returns {Array<T>} one-dimensional array
      */
     function flattenArray<T>(list: ArrayLike<Array<T> | T>): Array<T>;
+    /**
+     * Filters the array and only returns the elements that contain the `searchFor` string
+     * @param {ArrayLike<string>} list 
+     * @param {string} searchFor 
+     * @returns {Array<string>}
+     */
+    function searchFilter(list: ArrayLike<string>, searchFor: string): Array<string>;
     /**
      * Iterates from one number to another
      * @param {number} start number to start iterating from
@@ -57,6 +125,51 @@ export namespace Enumerables {
      * @returns {Array<string | number>}
      */
     function getPropertyList(obj: {}): Array<string | number>;
+
+    /**
+     * 
+     * @template T generic type of the array
+     * @template {{[index: string]: T} | Array<T>} E type of first argument
+     * @param {E} obj 
+     * @param {"of"} type 
+     * @param {(item: T, index: number, list: E) => void} callBack 
+     * @returns {void}
+     */
+    function iterate<T, E>(obj: E, type: "of", callBack: (item: T, index: number, list: E) => void): void;
+
+
+    /**
+     * 
+     * @template {{}} E type of first argument
+     * @param {E} obj 
+     * @param {"in"} type 
+     * @param {(item: string, index: number, list: E) => void} callBack 
+     * @returns {void}
+     */
+    function iterate<E>(obj: E, type: "in", callBack: (item: string, index: number, list: E) => void): void;
+
+
+    /**
+     * 
+     * @template T type of array
+     * @param {number} size 
+     * @param {T} [defaultValue]
+     * @returns {Array<T>}
+     */
+    function createEmptyArray<T>(size: number, defaultValue?: T): Array<T>;
+}
+
+export interface HttpOptions {
+    /** @ype {boolean} [withCredentials=false] */
+    withCredentials?: boolean;
+    headers: {
+        /** @ype {Array<string> | string} [Accept=["application/json", "text/html"]] */
+        "Accept"?: Array<string> | string;
+        /** @ype {Array<string> | string} [Content-Type="application/json"] */
+        "Content-Type"?: Array<string> | string;
+        /** @ype {Array<string> | string} [Cache-Control="no-cache, no-store, must-revalidate"] */
+        "Cache-Control"?: Array<string> | string;
+    };
 }
 
 export interface EZExpression {
@@ -103,7 +216,7 @@ export interface ObjectListenerScope {
     references: {
         [pKey: string]: {
             path: string;
-            callBack: (target: {}, property: string, type: "get" | "set", value: *, path: string) => void;
+            callBack: (target: {}, property: string, type: "get" | "set", value: any, path: string) => void;
         };
     };
     children: {
@@ -111,9 +224,41 @@ export interface ObjectListenerScope {
     };
 }
 
-export interface ViewController {
-    construct?: (...params?: Array<*>) => Promise<undefined> | undefined;
-    onLoad?: () => void;
+export interface ViewController extends Object {
+    construct?: (...params: Array<any>) => Promise<undefined> | undefined;
+    onLoad?: (dom: HTMLElement) => void;
+    emit: (eventName: string, event: *) => void;
+}
+
+export namespace HTML {
+
+    /**
+     * 
+     * @param {HTMLElement} dom 
+     * @param {string} valueType 
+     * @param {*} value 
+     * @returns {void}
+     */
+    function setValue(dom: HTMLElement, valueType: string, value: any): void;
+
+    /**
+     * 
+     * @param {HTMLInputElement} dom 
+     * @param {string} valueType
+     * @returns {string | boolean}
+     */
+    function getValue(dom: HTMLElement, valueType: string): string | boolean;
+
+    /**
+     * Adds a global event listener
+     * @template {keyof HTMLElementEventMap} K event type
+     * @param {K} type event type
+     * @param {string} query css query
+     * @param {(this: HTMLElement, ev: HTMLElementEventMap[K]) => void} listener event listener
+     * @param {HTMLElement} [root=document.body] optional root element 
+     * @returns {void}
+     */
+    function on<K extends keyof HTMLElementEventMap>(type: K, query: string, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => void, root?: HTMLElement): void;
 }
 
 export namespace Parser {
@@ -142,6 +287,15 @@ export namespace View {
      * @returns {void}
      */
     function registerView(tagName: string, dom: string | HTMLElement | Array<Node> | HTMLCollection | NodeList | NodeListOf<Node>, controller: ViewController): void;
+
+    /**
+     * Registers a tagName to a specific view (defined by a url)
+     * @param {string} tagName
+     * @param {string} url 
+     * @param {ViewController} controller
+     * @returns {void}
+     */
+    function registerURL(tagName: string, url: string, controller: ViewController): void;
 }
 
 export namespace Mutation {
@@ -153,6 +307,24 @@ export namespace Mutation {
     function deepClone<T extends {}>(oldObject: T): T;
 
     /**
+     * Sets the value of an object and makes it immutable
+     * @template {{}} T
+     * @param {T} obj object to add property to
+     * @param {string} key name of property
+     * @param {*} value value of property to be added
+     * @returns {T} initial object
+     */
+    function setValue<T extends {}>(obj: T, key: string, value: *): T;
+
+    /**
+     * 
+     * @param {{}} obj 
+     * @param {(target: {}, property: string, type: "get" | "set", value: *, path: string) => void} callBack
+     * @returns {void}
+     */
+    function addListener(obj: {}, callBack: (target: {}, property: string, type: "get" | "set", value: *, path: string) => void): void;
+
+    /**
      * 
      * @param {(changes: Array<MutationRecord>) => void} callBack 
      * @param {HTMLElement} [dom=document.body] 
@@ -160,7 +332,7 @@ export namespace Mutation {
      * @param {boolean} [checkChildren=true]
      * @returns {void}
      */
-    function addDomListener(callBack: (changes: Array<MutationRecord>) => void, dom?: HTMLElement = document.body, checkAttributes?: boolean = true, checkChildren?: boolean = true): void;
+    function addDomListener(callBack: (changes: Array<MutationRecord>) => void, dom?: HTMLElement, checkAttributes?: boolean, checkChildren?: boolean): void;
 
     /**
      * 
@@ -177,6 +349,14 @@ export namespace Mutation {
     * @returns {void}
     */
     function setScope(node: Node, scopeID: number): void;
+
+    /**
+    * 
+    * @param {Node} node 
+    * @param {number} placeholderID 
+    * @returns {void}
+    */
+    function setPlaceholder(node: Node, placeholderID: number): void;
 }
 
 export namespace Expressions {
@@ -184,10 +364,19 @@ export namespace Expressions {
      * 
      * @param {ViewController} controller 
      * @param {EZExpression} expression 
-     * @param {{[index: string]: *}} [scope]
+     * @param {{[index: string]: any}} [scope]
      * @returns {*}
      */
-    function evaluateValue(controller: ViewController, expression: EZExpression, scope?: { [index: string]: * }): *;
+    function evaluateValue(controller: ViewController, expression: EZExpression, scope?: { [index: string]: any }): any;
+
+    /**
+     * 
+     * @param {ViewController} controller 
+     * @param {EZExpression} expression 
+     * @param {{[index: string]: any}} [scope]
+     * @returns { parent: {}, key: string }
+     */
+    function getParent(controller: ViewController, expression: EZExpression, scope?: { [index: string]: any }): { parent: {}, key: string };
 }
 
 export as namespace JSDoc;

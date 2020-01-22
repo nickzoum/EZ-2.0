@@ -3,8 +3,10 @@ const minify = require("./node/minify");
 minify.minifyScripts([
     "src/util/polyfills.js",
     "src/util/enumerables.js",
-    "src/util/functions.js",
+    "src/util/util.js",
+    "src/util/http.js",
     "src/util/html.js",
+    "src/util/formatting.js",
     "src/util/expressions.js",
     "src/mutation/object-mutation.js",
     "src/mutation/dom-mutation.js",

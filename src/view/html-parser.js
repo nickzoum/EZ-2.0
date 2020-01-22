@@ -1,8 +1,11 @@
 if (undefined) var Parser = require("../ez").Parser;
-// TODO [ez-let] to declare complicated variables in html scopes
+if (undefined) var Util = require("../ez").Util;
+
 // TODO allow all `\s` to work as ` `
+// TODO allow numeric attributes (keep active attribute instead of Object.keys().pop)
 /** @typedef {import("../ez")}  JSDoc */
 ezDefine("Parser", function (exports) {
+    "use strict";
 
     exports.parsePage = parsePage;
     return exports;
@@ -32,21 +35,7 @@ ezDefine("Parser", function (exports) {
                     "<": function () {
                         ({
                             "Scope": function () {
-                                if (startsWith(pageText, index + 1, "!--")) {
-                                    scope = {
-                                        type: "Scope",
-                                        name: "Comment",
-                                        closedTag: false,
-                                        start: index,
-                                        end: null,
-                                        attributes: null,
-                                        ezAttributes: null,
-                                        singleTag: true,
-                                        text: null,
-                                        parent: scope
-                                    };
-                                    index += 3;
-                                } else if (scope.singleTag && pageText[index + 1] === "/" && scope.closedTag) {
+                                if (scope.singleTag && pageText[index + 1] === "/" && scope.closedTag) {
                                     scope.singleTag = false;
                                     scope.closedTag = false;
                                     index += 1;
@@ -55,10 +44,13 @@ ezDefine("Parser", function (exports) {
                                 }
                             },
                             "HTMLContent": function () {
-                                if (pageText[index + 1] === "/") {
+                                if (Util.startsWith(pageText, index + 1, "!--")) {
+                                    index = getCommentEnd(pageText, index + 4);
+                                } else if (pageText[index + 1] === "/") {
                                     scope.end = index;
                                     scope.content = scope.content.map(function (item) { return item instanceof Array ? item.join("") : item; });
                                     scope = scope.parent;
+                                    if (!scope) throw SyntaxError("Unmatched closing tag found at index + " + index);
                                     scope.singleTag = false;
                                     scope.closedTag = false;
                                     index += 1;
@@ -129,6 +121,9 @@ ezDefine("Parser", function (exports) {
                                         scope.ezAttributes[newAttribute] = null;
                                     } else scope.attributes[newAttribute] = null;
                                     attributeName = [];
+                                } else {
+                                    var lastAttriubute = Object.keys(scope.attributes).pop();
+                                    if (scope.attributes[lastAttriubute] instanceof Array) scope.attributes[lastAttriubute].push(" ");
                                 }
                             },
                             "HTMLContent": onDefault
@@ -157,6 +152,7 @@ ezDefine("Parser", function (exports) {
                                 var attributeNames = Object.keys(scope.attributes);
                                 if (attributeNames.length && scope.attributes[attributeNames.pop()] instanceof Array) return onDefault();
                                 if (scope.singleTag && pageText[index + 1] === ">") {
+                                    if (scope.name instanceof Array) scope.name = scope.name.join("");
                                     if (attributeName.length) {
                                         var newAttribute = attributeName.join("").replace(/^ez-/, "");
                                         if (newAttribute.length !== attributeName.length) throw SyntaxError("Ez attributes cannot be empty");
@@ -230,7 +226,7 @@ ezDefine("Parser", function (exports) {
                                     scope.attributes[name] = [pageText[index]];
                                 } else if (scope.attributes[name]) {
                                     if (scope.attributes[name][0] !== pageText[index]) throw SyntaxError("Invalid closing character, at index " + index);
-                                    scope.attributes[name].unshift();
+                                    scope.attributes[name].shift();
                                     scope.attributes[name] = scope.attributes[name].join("");
                                 }
                             },
@@ -245,10 +241,10 @@ ezDefine("Parser", function (exports) {
             }
             index += 1;
         }
+        if (scope.parent) throw SyntaxError("HTML hasn't been properly closed");
         return scope;
 
         function onDefault() {
-            if (scope.type === "Scope" && scope.name === "Comment") return;
             ({
                 "Scope": function () {
                     if (!scope.singleTag) return;
@@ -258,7 +254,8 @@ ezDefine("Parser", function (exports) {
                     else attributeName.push(pageText[index]);
                 },
                 "HTMLContent": function () {
-                    scope.content[((lastIndexOf(scope.content, function (item) { return typeof item === "string"; }) + 1) || scope.content.push("")) - 1] += pageText[index];
+                    if (typeof scope.content[scope.content.length - 1] === "string") scope.content[scope.content.length - 1] += pageText[index];
+                    else scope.content.push(pageText[index]);
                 }
             }[scope.type] || syntax)();
         }
@@ -266,20 +263,6 @@ ezDefine("Parser", function (exports) {
         function syntax() {
             throw SyntaxError("Error at index " + index + " '" + pageText.substring(index - 5, index + 5) + "'");
         }
-    }
-
-    /**
-     * 
-     * @param {Array<T>} list 
-     * @param {(item: T, index: number, list: Array<T>) => boolean} callBack
-     * @template T
-     * @returns {number} 
-     */
-    function lastIndexOf(list, callBack) {
-        for (var index = list.length - 1; index >= 0; index--) {
-            if (callBack(list[index], index, list)) return index;
-        }
-        return -1;
     }
 
     /**
@@ -304,25 +287,25 @@ ezDefine("Parser", function (exports) {
             else if (pageText[index] in stringMap) {
                 if (list[list.length - 1] === pageText[index]) list.pop();
                 else list.push(pageText[index]);
-            } else if (list.length === 0 && startsWith(pageText, index, searchingFor)) return index;
+            } else if (list.length === 0 && Util.startsWith(pageText, index, searchingFor)) return index;
             index += 1;
         }
-        if (list.length) throw SyntaxError("Opened script was never closed");
-        return index;
+        throw SyntaxError("Unclosed " + tagName + " tag");
     }
 
     /**
-     * More efficient version of `substring(startingIndex).startsWith(searchingFor)` for large strings
-     * @param {string} fullText Large text to look through
-     * @param {number} startingIndex index to start looking at
-     * @param {string} searchingFor text to find
-     * @returns {boolean}
+     * 
+     * @param {string} pageText 
+     * @param {number} index
+     * @returns {number} 
      */
-    function startsWith(fullText, startingIndex, searchingFor) {
-        for (var index = 0; index < searchingFor.length; index++) {
-            if (fullText[startingIndex + index] !== searchingFor[index]) return false;
+    function getCommentEnd(pageText, index) {
+        var searchingFor = "-->";
+        while (index < pageText.length) {
+            if (Util.startsWith(pageText, index, searchingFor)) return index + searchingFor.length;
+            index += 1;
         }
-        return true;
+        throw SyntaxError("Unclosed Comment Tag");
     }
 
 });

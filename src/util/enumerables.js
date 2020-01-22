@@ -1,5 +1,5 @@
 ezDefine("Enumerables", function (exports) {
-
+    "use strict";
     /**
      * Checks whether an object is enumerable
      * @param {*} arrayLike object to be checked for
@@ -92,10 +92,73 @@ ezDefine("Enumerables", function (exports) {
         else return Object.keys(obj);
     }
 
+    /**
+     * 
+     * @template T generic type of the array
+     * @template {{[index: string]: T} | Array<T> | Map<string, T>} E type of first argument
+     * @param {E} obj
+     * @param {"of" | "in"} type 
+     * @param {(item: T, index: number, list: E) => void} callBack 
+     * @returns {void}
+     */
+    function iterate(obj, type, callBack) {
+        if (obj === null) return;
+        if (typeof obj !== "object" && typeof obj !== "string") return;
+        var index = 0;
+        if (obj instanceof Map) {
+            if (type === "in") {
+                obj.forEach(function (value, key) {
+                    if (type === "in") callBack(key, index++, obj);
+                    else callBack(value, key, obj);
+                });
+            }
+        }
+        if (type === "in") {
+            for (var key in obj) {
+                callBack(key, index++, obj);
+            }
+        } else if (type === "of") {
+            for (; index < obj.length; index++) {
+                callBack(obj[index], index, obj);
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {Array<string>} list 
+     * @param {string} searchFor 
+     * @returns {Array<string>}
+     */
+    function searchFilter(list, searchFor) {
+        var text = String(searchFor);
+        return [].filter.call(list, function (item) {
+            if (!item) return !searchFor;
+            return String(item).includes(text);
+        });
+    }
+
+    /**
+     * 
+     * @template T type of array
+     * @param {number} size 
+     * @param {T} [defaultValue]
+     * @returns {Array<T>}
+     */
+    function createEmptyArray(size, defaultValue) {
+        if (typeof size !== "number" || isNaN(size) || size < 1) return [];
+        var result = new Array(size);
+        for (var index = 0; index < size.length; index++) result[index] = defaultValue;
+        return result;
+    }
+
+    exports.createEmptyArray = createEmptyArray;
     exports.getPropertyList = getPropertyList;
     exports.createSequence = createSequence;
     exports.isEnumerable = isEnumerable;
     exports.flattenArray = flattenArray;
+    exports.searchFilter = searchFilter;
+    exports.iterate = iterate;
     exports.toArray = toArray;
     exports.forLoop = forLoop;
     return exports;

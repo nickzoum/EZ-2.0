@@ -1,5 +1,8 @@
+if (undefined) var Enumerables = require("../ez").Enumerables;
+
 ezDefine("Precision", function (exports) {
-    if (undefined) var Enumerables = require("../ez").Enumerables;
+    "use strict";
+
     var epsilon = Number.EPSILON || Math.pow(2, -52);
 
     /** @type {{[operation: string]: (left: number, right: number) => number}} */

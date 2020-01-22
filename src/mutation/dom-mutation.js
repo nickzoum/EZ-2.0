@@ -1,6 +1,8 @@
 ezDefine("Mutation", function (exports) {
+    "use strict";
 
     exports.addDomListener = addDomListener;
+    exports.setPlaceholder = setPlaceholder;
     exports.setScope = setScope;
     exports.setTree = setTree;
     return exports;
@@ -51,6 +53,20 @@ ezDefine("Mutation", function (exports) {
             enumerable: false,
             writable: false,
             value: scopeID
+        });
+    }
+
+    /**
+     * 
+     * @param {Node} node 
+     * @param {number} placeholderID 
+     */
+    function setPlaceholder(node, placeholderID) {
+        Object.defineProperty(node, "placeholderID", {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: placeholderID
         });
     }
 

@@ -2,9 +2,11 @@ if (undefined) var Util = require("../ez").Util;
 
 /** @typedef {import("../ez")} JSDoc */
 
-// TODO [ez-let] to declare complicated variables in html scopes
 // TODO property accessors "[",  "]"
 ezDefine("Parser", function (exports) {
+    "use strict";
+
+    var propertyKeywords = ["null", "true", "false"];
 
     var operators = {
         leftToRight: {
@@ -22,6 +24,7 @@ ezDefine("Parser", function (exports) {
             ">=": 11,
             "of": 11,
             "in": 11,
+            "like": 11,
             "instanceof": 11,
             "==": 10,
             "!=": 10,
@@ -89,6 +92,31 @@ ezDefine("Parser", function (exports) {
                 },
                 "(": function () {
                     var actionMap = {
+                        "Parameter": function () {
+                            scope = {
+                                type: "Call",
+                                parent: scope.parent,
+                                start: scope.start,
+                                content: scope,
+                                arguments: []
+                            };
+                            var parent = scope.content.parent;
+                            if (parent.content instanceof Array) parent.content.splice(parent.content.indexOf(scope.content), 1, scope);
+                            else parent.content = scope;
+                            scope = {
+                                type: "Expression",
+                                parent: scope,
+                                start: index,
+                                content: []
+                            };
+                            scope.parent.arguments.push(scope);
+                        },
+                        "Property": function () {
+                            if (scope.accessor !== "[") {
+                                if (scope.parent.type === "Parameter") goUp(19);
+                            }
+                            this.Parameter();
+                        },
                         "Expression": function () {
                             scope = {
                                 type: "Expression",
@@ -108,6 +136,10 @@ ezDefine("Parser", function (exports) {
                             if (!scope.parent || scope.parent.type === "Property") throw Error("Unexpected closing parenthesis ')'");
                             sortExpression();
                             goUp();
+                            if (scope.type === "Call") {
+                                if (scope.arguments[scope.arguments.length - 1].content.length === 0) scope.arguments.pop();
+                                goUp();
+                            }
                         },
                         "NumberLiteral": function () {
                             goUp(19);
@@ -122,10 +154,10 @@ ezDefine("Parser", function (exports) {
                     (innerMap[scope.type] || syntax).call(innerMap);
                 },
                 "+": function () {
-                    if (!onConversion("+")) onArithmetic("+");
+                    if (!onConversion("+", true, false)) onArithmetic("+");
                 },
                 "-": function () {
-                    if (!onConversion("-")) onArithmetic("-");
+                    if (!onConversion("-", true, false)) onArithmetic("-");
                 },
                 "*": function () {
                     if (Util.startsWith(pageText, index, "**")) onArithmetic("**");
@@ -166,7 +198,8 @@ ezDefine("Parser", function (exports) {
                     var self = this;
                     var actionMap = {
                         "Property": function () {
-                            // TODO
+                            goUp(19);
+                            // TODO check ]
                         },
                         "Parameter": function () {
                             if (Util.startsWith(pageText, index, "?.")) {
@@ -242,6 +275,7 @@ ezDefine("Parser", function (exports) {
                                 start: index,
                                 content: scope
                             };
+                            if (scope.parent.content) throw Error("Invalid conversion");
                             scope.parent.content = scope;
                             this.Parameter();
                         },
@@ -255,15 +289,17 @@ ezDefine("Parser", function (exports) {
                             if (scope.parent === "Parameter") {
                                 scope = scope.parent;
                             } else {
+                                var oldScope = scope;
                                 scope = {
                                     type: "Parameter",
-                                    parent: scope.parent,
-                                    start: scope.start,
-                                    content: [scope]
+                                    parent: oldScope.parent,
+                                    start: oldScope.start,
+                                    content: [oldScope]
                                 };
-                                var parent = scope.content[0].parent;
-                                if (parent.content instanceof Array) parent.content.splice(parent.content.indexOf(scope.content[0]), 1, scope);
+                                var parent = oldScope.parent;
+                                if (parent.content instanceof Array) parent.content.splice(parent.content.indexOf(oldScope), 1, scope);
                                 else parent.content = scope;
+                                oldScope.parent = scope;
                             }
                             this.Parameter();
                         },
@@ -293,22 +329,38 @@ ezDefine("Parser", function (exports) {
                 },
                 ",": function () {
                     if (scope.type === "TextLiteral") return onDefault();
-                    if (scope.parent) {
-                        if (scope.type === "Expression") throw Error("Unclosed brackets");
-                        else goUp();
+                    while (scope.parent && scope.type !== "Call") {
+                        if (scope.type === "Expression") {
+                            if (scope.parent.type === "Call") goUp();
+                            else throw Error("Unclosed brackets");
+                        } else goUp();
                     }
-                    sortExpression();
-                    scope.dependencies = Object.keys(dependencies);
-                    scope.end = index;
-                    scope = {
-                        type: "Expression",
-                        start: index + 1,
-                        content: [],
-                        text: ""
-                    };
-                    scopeList.push(scope);
-                    dependencies = {};
-                    char = "";
+                    ({
+                        "Expression": function () {
+                            sortExpression();
+                            scope.dependencies = Object.keys(dependencies);
+                            if ("null" in dependencies && scope.dependencies.length > 1) scope.dependencies = ["null"];
+                            scope.end = index;
+                            scope = {
+                                type: "Expression",
+                                start: index + 1,
+                                content: [],
+                                text: ""
+                            };
+                            scopeList.push(scope);
+                            dependencies = {};
+                            char = "";
+                        },
+                        "Call": function () {
+                            scope = {
+                                type: "Expression",
+                                parent: scope,
+                                start: index,
+                                content: []
+                            };
+                            scope.parent.arguments.push(scope);
+                        }
+                    }[scope.type] || syntax)();
                 },
                 ":": function () {
                     onArithmetic(":");
@@ -316,16 +368,19 @@ ezDefine("Parser", function (exports) {
                 "!": function () {
                     if (Util.startsWith(pageText, index, "!==")) onArithmetic("!==");
                     else if (Util.startsWith(pageText, index, "!=")) onArithmetic("!=");
-                    else if (!onConversion("!", true)) onDefault();
+                    else if (!onConversion("!", true, true)) onDefault();
                 },
                 "i": function () {
                     if (!onText("instanceof") && !onText("in")) onDefault();
                 },
                 "t": function () {
-                    if (!onConversion("typeof", true)) onDefault();
+                    if (!onConversion("typeof", false, true)) onDefault();
                 },
                 "o": function () {
                     if (!onText("of")) onDefault();
+                },
+                "l": function () {
+                    if (!onText("like")) onDefault();
                 },
                 " ": function () {
                     var actionMap = {
@@ -371,6 +426,7 @@ ezDefine("Parser", function (exports) {
         sortExpression();
         if (char !== startCharacter) throw SyntaxError("Unclosed ez-attribute at index " + index);
         scope.dependencies = Object.keys(dependencies);
+        if ("null" in dependencies && scope.dependencies.length > 1) scope.dependencies = ["null"];
         scope.end = index;
         return scopeList;
 
@@ -384,7 +440,8 @@ ezDefine("Parser", function (exports) {
                         content: "",
                         quote: quote
                     };
-                    scope.parent.content.push(scope);
+                    if (scope.parent.content) throw Error("Invalid conversion");
+                    scope.parent.content = scope;
                 },
                 "TextLiteral": function () {
                     if (scope.quote === quote) {
@@ -427,6 +484,8 @@ ezDefine("Parser", function (exports) {
                         end: index + sign.length
                     });
                     index += sign.length - 1;
+                    scopeList[scopeList.length - 1].text += sign;
+                    char = "";
                 },
                 "TextLiteral": onDefault
             };
@@ -454,9 +513,9 @@ ezDefine("Parser", function (exports) {
             return (actionMap[scope.type] || syntax).call(actionMap);
         }
 
-        function onConversion(sign, throwError) {
+        function onConversion(sign, standAlone, throwError) {
             if (scope.type === "TextLiteral") return false;
-            if (!Util.startsWith(pageText, index, sign) || /\w/.test(pageText[index + sign.length] || "")) return false;
+            if (!Util.startsWith(pageText, index, sign) || (!standAlone && /\w/.test(pageText[index + sign.length] || ""))) return false;
             var actionMap = {
                 "Conversion": function () {
                     scope = {
@@ -469,17 +528,37 @@ ezDefine("Parser", function (exports) {
                         },
                         parent: scope,
                         start: index,
-                        content: []
+                        content: null
                     };
                     scope.operator.parent = scope;
-                    scope.parent.content.push(scope);
+                    if (scope.parent.content) throw Error("Invalid conversion");
+                    scope.parent.content = scope;
                     index += sign.length - 1;
+                    scopeList[scopeList.length - 1].text += sign;
+                    char = "";
                     return true;
                 },
                 "Expression": function () {
                     var last = scope.content[scope.content.length - 1];
                     if (last === undefined || last.type === "Operator") {
-                        return this.Conversion();
+                        scope = {
+                            type: "Conversion",
+                            operator: {
+                                type: "Operator",
+                                content: sign,
+                                start: index,
+                                end: index + sign.length
+                            },
+                            parent: scope,
+                            start: index,
+                            content: null
+                        };
+                        scope.operator.parent = scope;
+                        scope.parent.content.push(scope);
+                        index += sign.length - 1;
+                        scopeList[scopeList.length - 1].text += sign;
+                        char = "";
+                        return true;
                     } else {
                         if (throwError) throw SyntaxError("Unexpected unary operator '" + sign + "' at index " + index);
                         else return false;
@@ -499,7 +578,22 @@ ezDefine("Parser", function (exports) {
                     scope.content += pageText[index];
                 },
                 "Conversion": function () {
-                    this.Expression();
+                    if (/\d/.test(pageText[index])) {
+                        scope = {
+                            type: "NumberLiteral",
+                            parent: scope,
+                            content: pageText[index]
+                        };
+                    } else {
+                        scope = {
+                            type: "Property",
+                            parent: scope,
+                            content: pageText[index]
+                        };
+                    }
+                    scope.start = index;
+                    if (scope.parent.content) throw Error("Invalid conversion");
+                    scope.parent.content = scope;
                 },
                 "Property": function () {
                     if (pageText[index] === ".") throw SyntaxError("Property cannot contain the '.' character");
@@ -536,21 +630,37 @@ ezDefine("Parser", function (exports) {
             throw SyntaxError("Error at index " + index + " '" + pageText.substring(index - 5, index + 5) + "'");
         }
 
-        function goUp(precedence) {
-            if (!scope.parent) throw SyntaxError("Unexpected expression closing character " + pageText[index]);
-            if (scope.type === "Property" && scope.parent.type !== "Parameter") dependencies[scope.content] = 0;
-            else if (scope.type === "Parameter") {
-                if (scope.content[0].type === "Property") {
-                    var i = 0;
+        function addDependencies() {
+            var actionMap = {
+                "Property": function () {
+                    if (scope.parent.type !== "Parameter" && !propertyKeywords.includes(scope.content)) dependencies[scope.content] = 0;
+                },
+                "Parameter": function () {
+                    if (scope.content[0].type !== "Property") return;
                     var list = [];
+                    var scopeIndex = 0;
                     var item = scope.content[0];
-                    while (item && item.type === "Property" && item.accessor !== "[") {
-                        list.push(item.content);
-                        dependencies[list.join(".")] = 0;
-                        item = scope.content[++i];
+                    while (item && item.type === "Property") {
+                        if (item.accessor === "[") {
+                            item = item.content.content[0];
+                            if (item.type === "TextLiteral") list.push(item.content);
+                            else if (item.type === "Property") list[list.length - 1] += "[" + item.content + "]";
+                            else return dependencies["null"] = 0;
+                            dependencies[list.join(".")] = 0;
+                        } else if (item.content !== "this") {
+                            list.push(item.content);
+                            dependencies[list.join(".")] = 0;
+                        }
+                        item = scope.content[++scopeIndex];
                     }
                 }
-            }
+            };
+            if (scope.type in actionMap) actionMap[scope.type]();
+        }
+
+        function goUp(precedence) {
+            if (!scope.parent) throw SyntaxError("Unexpected expression closing character " + pageText[index]);
+            addDependencies();
             scope.end = index;
             scope = scope.parent;
             if ((scope.type === "Conversion" || scope.type === "Parameter") && (precedence || 0) < 16) goUp(precedence);
