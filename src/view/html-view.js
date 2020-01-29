@@ -19,6 +19,7 @@ ezDefine("View", function (exports) {
 
     var specialClasses = ["loop", "let", "pass", "if"];
     var tempDom = document.createElement("div");
+    var gcTimer = { interval: 3000, timeout: 25 };
 
     var idCounter = 0;
 
@@ -33,7 +34,7 @@ ezDefine("View", function (exports) {
     var dependenciesMap = {};
     if (document.readyState === "complete") addMutationListener();
     else addEventListener("load", addMutationListener);
-
+    setInterval(deletePartition, gcTimer.interval);
     exports.registerView = registerView;
     exports.registerURL = registerURL;
     return exports;
@@ -205,6 +206,7 @@ ezDefine("View", function (exports) {
         }
 
         function evaluateLoopNode(node) {
+            if (!node) return;
             var tree = trees[node.treeID];
             if (node instanceof Text && tree && !("type" in tree)) {
                 manageLoop(newController, dependencies, node.treeID);
@@ -212,6 +214,7 @@ ezDefine("View", function (exports) {
         }
 
         function evaluateNode(path, node) {
+            if (!node) return;
             var tree = trees[node.treeID];
             var placeHolder = "placeholderID" in node ? comments[node.placeholderID] : null;
             var scope = "scopeID" in node ? scopes[node.scopeID] : null;
@@ -495,8 +498,7 @@ ezDefine("View", function (exports) {
             if (children[key] === undefined || list[key] !== children[key].item) {
                 if (children[key] !== undefined) {
                     oldProperties[key] = true;
-                    var tm = deleteCascade(dependencies, children[key].domList);
-                    console.log(tree, key, tm);
+                    removeCascade(dependencies, children[key].domList);
                 }
                 var innerScope = Object.create(parentScope || null);
                 var scopeID = ++idCounter;
@@ -530,8 +532,7 @@ ezDefine("View", function (exports) {
 
         for (var key in oldProperties) {
             if (!oldProperties[key]) {
-                var tm = deleteCascade(dependencies, children[key].domList);
-                console.log(tree, key, tm);
+                removeCascade(dependencies, children[key].domList);
                 children[key] = undefined;
             }
         }
@@ -543,44 +544,63 @@ ezDefine("View", function (exports) {
      * @param {Node | Array<Node>} node
      * @returns {void} 
      */
-    function deleteCascade(dependencies, node) {
-        // TODO fix performance
-        // TODO delete full dependency object if node is a root
-        var start = Date.now();
-        if (node instanceof Array) return node.forEach(deleteCascade.bind(null, dependencies));
-        var dependencyList = dependenciesMap[node.dependencyID];
-        if (dependencyList instanceof Array) {
-            dependencyList.forEach(function (depPath) {
-                var index = (dependencies[depPath] || []).indexOf(node);
-                if (index !== -1) dependencies[depPath].splice(index, 1);
-            });
-        }
-        var comment = comments[node.placeholderID];
+    function removeCascade(dependencies, node) {
+        var list = [];
+        (node instanceof Array ? node : [node]).forEach(function (child) {
+            deleteCascade(dependencies, child, list);
+            if (child.parentNode) child.parentNode.removeChild(child);
+        });
+        deleteList.push({ dependencies: dependencies, nodes: list });
+    }
+
+    /**
+     * 
+     * @param {{[index: string]: Array<Node>}} dependencies
+     * @param {Node} node
+     * @param {Array<Node>} list
+     * @returns {void} 
+     */
+    function deleteCascade(dependencies, node, list) {
+        if (this instanceof Array) list = this;
         if (node instanceof HTMLElement) {
-            [].slice.call(node.attributes).forEach(deleteCascade.bind(null, dependencies));
-            if (!hasValidTag(node)) [].slice.call(node.childNodes).forEach(deleteCascade.bind(null, dependencies));
+            [].slice.call(node.attributes).forEach(deleteCascade.bind(list, dependencies));
+            if (!hasValidTag(node)) [].slice.call(node.childNodes).forEach(deleteCascade.bind(list, dependencies));
             else removeView(node);
-            if (node.parentElement) node.parentElement.removeChild(node);
-        } else if (node instanceof Text) {
-            if (node.parentNode) node.parentNode.removeChild(node);
         } else if (node instanceof Comment) {
-            if (node.parentNode) node.parentNode.removeChild(node);
-            if (comment) deleteCascade(dependencies, comment.dom);
-        } else if (node instanceof Attr) {
-            if (node.ownerElement) node.ownerElement.removeAttribute(node.name);
+            var comment = comments[node.placeholderID];
+            if (comment) deleteCascade(dependencies, comment.dom, list);
         }
-        if (comment) comments[node.placeholderID] = undefined;
-        if ("treeID" in node) trees[node.treeID] = undefined;
-        if ("dependencyID" in node) dependenciesMap[node.dependencyID] = undefined;
-        if ("scopeID" in node) scopes[node.scopeID] = undefined;
-        return Date.now() - start;
+        list.push(node);
+        return list;
     }
 
     function deletePartition() {
         var start = Date.now();
-        while (Date.now() - start < 100) {
-
+        if (!deleteList.length) return;
+        var item = deleteList.shift(), dependencies = item.dependencies;
+        while (Date.now() - start <= gcTimer.timeout) {
+            if (!item.nodes.length) {
+                if (!deleteList.length) return;
+                item = deleteList.shift();
+                dependencies = item.dependencies;
+            } else {
+                var node = item.nodes.shift();
+                var dependencyList = dependenciesMap[node.dependencyID];
+                if (dependencyList instanceof Array) {
+                    dependencyList.forEach(function (depPath) {
+                        var index = (dependencies[depPath] || []).indexOf(node);
+                        if (index !== -1) dependencies[depPath].splice(index, 1);
+                    });
+                }
+                if (node instanceof Attr) { if (node.ownerElement) node.ownerElement.removeAttribute(node.name); }
+                else if (node.parentElement) node.parentNode.removeChild(node);
+                if ("placeholderID" in node) comments[node.placeholderID] = undefined;
+                if ("treeID" in node) trees[node.treeID] = undefined;
+                if ("dependencyID" in node) dependenciesMap[node.dependencyID] = undefined;
+                if ("scopeID" in node) scopes[node.scopeID] = undefined;
+            }
         }
+        if (item.nodes.length) deleteList.push(item);
     }
 
     /**
@@ -603,10 +623,11 @@ ezDefine("View", function (exports) {
     function removeView(dom) {
         var index = getViewIndex(dom);
         if (index !== -1) {
-            var dependencies = existingViews[dom.tagName][index].dependencies;
-            [].slice.call(dom.childNodes).forEach(deleteCascade.bind(null, dependencies));
+            var dependencies = existingViews[dom.tagName][index].dependencies, list = [];
+            [].slice.call(dom.childNodes).forEach(deleteCascade.bind(list, dependencies));
             if (dom.parentElement) dom.parentElement.removeChild(dom);
             existingViews[dom.tagName].splice(index, 1);
+            deleteList.push({ dependencies: dependencies, nodes: list });
         }
     }
 });
