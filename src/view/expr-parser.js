@@ -2,7 +2,8 @@ if (undefined) var Util = require("../ez").Util;
 
 /** @typedef {import("../ez")} JSDoc */
 
-// TODO property accessors "[",  "]"
+// TODO numbers in accessors list[0]
+// TODO fix eror when parsing ('!x || !x')
 ezDefine("Parser", function (exports) {
     "use strict";
 
@@ -125,6 +126,15 @@ ezDefine("Parser", function (exports) {
                                 content: []
                             };
                             scope.parent.content.push(scope);
+                        },
+                        "Conversion": function () {
+                            scope = {
+                                type: "Expression",
+                                parent: scope,
+                                start: index,
+                                content: []
+                            };
+                            scope.parent.content = scope;
                         },
                         "TextLiteral": onDefault
                     };
@@ -286,7 +296,7 @@ ezDefine("Parser", function (exports) {
                         },
                         "Property": function () {
                             scope.end = index;
-                            if (scope.parent === "Parameter") {
+                            if (scope.parent.type === "Parameter") {
                                 scope = scope.parent;
                             } else {
                                 var oldScope = scope;

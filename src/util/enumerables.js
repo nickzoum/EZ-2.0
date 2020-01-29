@@ -148,7 +148,7 @@ ezDefine("Enumerables", function (exports) {
     function createEmptyArray(size, defaultValue) {
         if (typeof size !== "number" || isNaN(size) || size < 1) return [];
         var result = new Array(size);
-        for (var index = 0; index < size.length; index++) result[index] = defaultValue;
+        for (var index = 0; index < size; index++) result[index] = defaultValue;
         return result;
     }
 

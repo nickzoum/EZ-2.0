@@ -90,8 +90,9 @@ ezDefine("Mutation", function (exports) {
                         reference.references[refKey].callBack(obj, null, "set", obj, reference.references[refKey].path);
                     }
                 }
-                // refreshProperty(obj);
-                // TODO removed refreshProperty check if correct
+                Enumerables.getPropertyList(obj).forEach(function (key) {
+                    addListener(obj[key], callBack, path + (path ? "." : "") + key, childCheckParent, scopeID, reference.children, key);
+                });
             });
         }
         reference.references[fullScope] = {
@@ -148,6 +149,8 @@ ezDefine("Mutation", function (exports) {
         }
 
         function get() {
+            return oldGet();
+            // TODO allow option to skip
             var result = oldGet();
             for (var refKey in reference.references) {
                 if (reference.references[refKey] && typeof reference.references[refKey].callBack === "function") {

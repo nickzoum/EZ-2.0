@@ -1,23 +1,13 @@
-if (undefined) var View = require("../src/ez").View;
+if (undefined) var { View, Parser, Expressions } = require("../src/ez");
 
-View.registerView("test", "<foo ez-on-change='onBar($)'></foo>", {
-    construct: function () {
 
-    },
-    onBar: function (event) {
-        console.log(event);
-    }
+View.registerView("test", `<input type="text" ez-value="text"/><foo ez-pass="text"/>`, {
+    text: ""
 });
 
-
-View.registerView("foo", "<div></div>", {
-    construct: function () {
-
+View.registerView("foo", `<span>'\${text}'</span>`, {
+    construct: function (text) {
+        this.text = text;
     },
-    onLoad: function () {
-        var self = this;
-        setTimeout(function () {
-            self.emit("change", { test: 2, oi: 3 });
-        }, 1500);
-    }
+    text: ""
 });
