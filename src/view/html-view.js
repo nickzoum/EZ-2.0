@@ -11,7 +11,6 @@ if (undefined) var HTML = require("../ez").HTML;
 ezDefine("View", function (exports) {
     "use strict";
     // TODO freeze elements behind ez-if (when hidden)!IMPORTANT
-    // TODO Dependency Garbage Collection !IMPORTANT
     // TODO allow ez-pass on root view
     // TODO allow reverse order views
     // TODO combine replaceScope with parent scope everywhere
@@ -224,6 +223,7 @@ ezDefine("View", function (exports) {
                     if (dependencyList.indexOf(path) !== -1) {
                         var oldParent = node.parentElement, ref = node.nextElementSibling;
                         removeView(node);
+                        node.innerHTML = "";
                         createView(node, views[node.tagName].tree, views[node.tagName].controller);
                         if (oldParent) {
                             if (ref) oldParent.insertBefore(node, ref);
@@ -343,10 +343,14 @@ ezDefine("View", function (exports) {
                                             newScope.$ = event;
                                             newScope.this = dom;
                                             return Expressions.evaluateValue(controller, callExpression, newScope);
+                                        },
+                                        "Expression": function () {
+                                            // TODO calculated function
                                         }
                                     }[callExpression.type])();
                                 });
                             });
+                            dom.setAttribute("ez-" + key, expressionList.map(function (e) { return e.text; }).join());
                         })(scope.ezAttributes[key]);
                     } else {
                         if (specialClasses.includes(key)) {
@@ -377,7 +381,8 @@ ezDefine("View", function (exports) {
                             var attribute = document.createAttribute(key);
                             trees[++idCounter] = scope.ezAttributes[key][0];
                             Mutation.setTree(attribute, idCounter);
-                            dom.setAttributeNode(attribute);
+                            try { dom.setAttributeNode(attribute); }
+                            catch (err) {/* Weird IE interaction */ }
                             if (HTML.setValue(dom, key, Expressions.evaluateValue(controller, scope.ezAttributes[key][0], scopes[scopeID]))) {
                                 var content = scope.ezAttributes[key][0].content;
                                 if (content.length === 1) {
