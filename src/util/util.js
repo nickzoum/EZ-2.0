@@ -3,6 +3,7 @@ if (undefined) var { Enumerables } = require("../ez");
 ezDefine("Util", function (exports) {
     "use strict";
 
+    exports.getPrototypeChain = getPrototypeChain;
     exports.startsWith = startsWith;
     exports.getModel = getModel;
     exports.empty = empty;
@@ -43,6 +44,22 @@ ezDefine("Util", function (exports) {
         catch (err) { return /^\[*\]$/.test(json) || /^{*}$/.test(json) || /^"*"$/.test(json) || /^'*'$/.test(json) ? json : null; }
     }
 
+    /**
+     * Gets the prototype chain of an object
+     * @param {{}} obj Object to get the chain from
+     * @returns {Array<{}>} Prototype chain
+     */
+    function getPrototypeChain(obj) {
+        if (typeof obj !== "object") return [];
+        var chain = [];
+        while (obj) {
+            chain.push(obj);
+            obj = Object.getPrototypeOf(obj);
+        }
+        chain.push(null);
+        return chain;
+    }
+
 
     /**
      * Gets a specified object from a json
@@ -69,11 +86,10 @@ ezDefine("Util", function (exports) {
                     object = object instanceof Date ? object : new Date(object);
                     return isNaN(object.valueOf()) ? null : object;
                 } else if (object === null) return null;
-                var result = {};
-                for (var key in prototype) {
-                    result[key] = getModel(prototype[key], object[key]);
-                }
-                return result;
+                return getPrototypeChain(prototype).reduceRight(function (result, proto) {
+                    for (var key in proto) result[key] = getModel(prototype[key], object[key]);
+                    return result;
+                }, {});
             }
         }[typeof prototype] || function () { throw Error("Unknown type " + typeof prototype); })();
     }

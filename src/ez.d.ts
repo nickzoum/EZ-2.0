@@ -24,6 +24,14 @@ export namespace Util {
      * @returns {T} parsed json as prototype object
      */
     function getModel<T>(prototype: T, json: string | T): T;
+
+
+    /**
+     * Gets the prototype chain of an object
+     * @param {Object} obj Object to get the chain from
+     * @returns {Array<Object>} Prototype chain
+     */
+    function getPrototypeChain(obj: Object): Object;
 }
 
 export namespace Http {
