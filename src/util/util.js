@@ -3,6 +3,8 @@ if (undefined) var { Enumerables } = require("../ez");
 ezDefine("Util", function (exports) {
     "use strict";
 
+    var protoToSkip = Object.getPrototypeOf({});
+
     exports.getPrototypeChain = getPrototypeChain;
     exports.startsWith = startsWith;
     exports.getModel = getModel;
@@ -84,7 +86,7 @@ ezDefine("Util", function (exports) {
         return list.map(function (propertyName) {
             return {
                 name: propertyName,
-                descriptor: Object.getOwnPropertyDescriptor(obj, propertyName)
+                descr: Object.getOwnPropertyDescriptor(obj, propertyName)
             };
         });
     }
@@ -98,6 +100,7 @@ ezDefine("Util", function (exports) {
      */
     function getModel(prototype, json) {
         return ({
+            "undefined": function () { return undefined; },
             "function": function () { return prototype; },
             "symbol": function () { return prototype; },
             "string": function () { return json; },
@@ -115,8 +118,9 @@ ezDefine("Util", function (exports) {
                     return isNaN(object.valueOf()) ? null : object;
                 } else if (object === null) return null;
                 return getPrototypeChain(prototype).reduceRight(function (result, proto) {
+                    if (protoToSkip === proto) return result;
                     getObjectDescription(proto).forEach(function (descriptor) {
-                        var newDescriptor = {}, newValue = getModel(prototype[descriptor], object[descriptor]);
+                        var newDescriptor = {}, newValue = getModel(prototype[descriptor.name], object[descriptor.name]);
                         if (typeof descriptor.descr.get === "function") newDescriptor.get = descriptor.descr.get;
                         if (typeof descriptor.descr.set === "function") newDescriptor.set = descriptor.descr.set;
                         if ("configurable" in descriptor.descr) newDescriptor.configurable = descriptor.descr.configurable;

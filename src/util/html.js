@@ -79,7 +79,7 @@ ezDefine("HTML", function (exports) {
      */
     function setValue(dom, valueType, value) {
         var mapValue = map[valueType];
-        if (!mapValue || !(mapValue.includes(dom.constructor))) return dom.setAttribute(valueType, value), false;
+        if (!mapValue || !(mapValue.list.includes(dom.constructor))) return dom.setAttribute(valueType, value), false;
         return mapValue.set(dom, value);
     }
 
@@ -91,7 +91,7 @@ ezDefine("HTML", function (exports) {
      */
     function getValue(dom, valueType) {
         var mapValue = map[valueType];
-        if (!mapValue || !(mapValue.includes(dom.constructor))) return dom.getAttribute(valueType);
+        if (!mapValue || !(mapValue.list.includes(dom.constructor))) return dom.getAttribute(valueType);
         return mapValue.get(dom);
     }
 
