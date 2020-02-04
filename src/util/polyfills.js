@@ -1,6 +1,6 @@
 ezDefine("EZ", function () {
     "use strict";
-    if (typeof Object.defineProperty !== "function") console.warn("Object.defineProperty is not supported, polyfills will work as expected");
+    if (typeof Object.defineProperty !== "function") throw Error("Incopatible browser");
 
     /**
      * Adds a function to the prototype of a class
@@ -24,70 +24,6 @@ ezDefine("EZ", function () {
         }
     }
 
-    define(Array.prototype, "forEach", function (callbackfn, thisArg) {
-        if (typeof callbackfn !== "function") throw new TypeError("callback is not a function");
-        if (this === null || this === undefined) throw new TypeError("Array.prototype.forEach called on null or undefined");
-        var length = this.length >>> 0;
-        for (var index = 0; index < length; index++) {
-            if (index in this) {
-                if (thisArg === undefined) callbackfn(this[index], index, this);
-                else callbackfn.call(thisArg, this[index], index, this);
-            }
-        }
-    });
-    define(Array.prototype, "reduce", function (callbackfn, initialValue) {
-        if (typeof callbackfn !== "function") throw new TypeError("callback is not a function");
-        if (this === null || this === undefined) throw new TypeError("Array.prototype.reduce called on null or undefined");
-        var index = 0;
-        if (arguments.length === 1) {
-            while (!(index in this) && index < length) index++;
-            if (index - 1 in this) initialValue = this[index - 1];
-            else throw new TypeError("Reduce of empty array with no initial value");
-        }
-        while (index < length) {
-            if (index in this) initialValue = callbackfn(initialValue, this[index], index, this);
-            index += 1;
-        }
-        return initialValue;
-    });
-    define(Array.prototype, "reduceRight", function (callbackfn, initialValue) {
-        if (typeof callbackfn !== "function") throw new TypeError("callback is not a function");
-        if (this === null || this === undefined) throw new TypeError("Array.prototype.reduceRight called on null or undefined");
-        var index = this.length >>> 0;
-        if (arguments.length === 1) {
-            while (!(index in this) && index >= 0) index--;
-            if (index + 1 in this) initialValue = this[index + 1];
-            else throw new TypeError("Reduce of empty array with no initial value");
-        }
-        while (index >= 0) {
-            if (index in this) initialValue = callbackfn(initialValue, this[index], index, this);
-            index -= 1;
-        }
-        return initialValue;
-    });
-    define(Array.prototype, "map", function (callbackfn, thisArg) {
-        if (typeof callbackfn !== "function") throw new TypeError("callback is not a function");
-        if (this === null || this === undefined) throw new TypeError("Array.prototype.map called on null or undefined");
-        var newList = new Array(this.length >>> 0);
-        for (var index = 0; index < newList.length; index++) {
-            if (index in this) {
-                if (thisArg === undefined) newList[index] = callbackfn(this[index], index, this);
-                else newList[index] = callbackfn.call(thisArg, this[index], index, this);
-            }
-        }
-        return newList;
-    });
-    define(Array.prototype, "filter", function (callbackfn, thisArg) {
-        if (typeof callbackfn !== "function") throw new TypeError("callback is not a function");
-        if (this === null || this === undefined) throw new TypeError("Array.prototype.filter called on null or undefined");
-        var newList = [];
-        for (var index = 0; index < this.length; index++) {
-            if (index in this) {
-                if (thisArg === undefined ? callbackfn(this[index], index, this) : callbackfn.call(thisArg, this[index], index, this)) newList.push(this[index]);
-            }
-        }
-        return newList;
-    });
     define(Array.prototype, "findIndex", function (callbackfn, thisArg) {
         if (typeof callbackfn !== "function") throw new TypeError("callback is not a function");
         if (this === null || this === undefined) throw new TypeError("Array.prototype.findIndex called on null or undefined");
@@ -106,16 +42,6 @@ ezDefine("EZ", function () {
                 if (thisArg === undefined ? callbackfn(this[index], index, this) : callbackfn.call(thisArg, this[index], index, this)) return this[index];
             }
         }
-    });
-    define(Array.prototype, "indexOf", function (searchElement, fromIndex) {
-        if (this === null || this === undefined) throw new TypeError("Array.prototype.find called on null or undefined");
-        fromIndex = fromIndex | 0;
-
-        if (typeof fromIndex !== "number" || isNaN(fromIndex) || fromIndex < 0) fromIndex = 0;
-        for (var index = 0; index < this.length; index++) {
-            if (this[index] === searchElement) return index;
-        }
-        return -1;
     });
     define(Array.prototype, "includes", function (searchElement, fromIndex) {
         return Array.prototype.indexOf.call(this, searchElement, fromIndex) !== -1;

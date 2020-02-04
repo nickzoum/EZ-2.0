@@ -7,6 +7,7 @@ ezDefine("Util", function (exports) {
     exports.startsWith = startsWith;
     exports.getModel = getModel;
     exports.empty = empty;
+    exports.cast = cast;
     return exports;
 
     /**
@@ -17,6 +18,17 @@ ezDefine("Util", function (exports) {
         return (Enumerables.toArray(arguments).find(function (callBack) {
             return !!callBack;
         })) || (function () { });
+    }
+
+    /**
+     * Casts a value as something else
+     * @template {*} E type of cast
+     * @param {E} prototype cast
+     * @param {*} value value to be cast
+     * @returns {E} value cast as the first parameter
+     */
+    function cast(prototype, value) {
+        return value;
     }
 
     /**
@@ -60,6 +72,22 @@ ezDefine("Util", function (exports) {
         return chain;
     }
 
+    /**
+     * 
+     * @param {{}} obj
+     * @returns {Array<{name: string | Symbol, descr: PropertyDescriptor}>} 
+     */
+    function getObjectDescription(obj) {
+        if (typeof obj !== "object" || obj === null) return [];
+        var list = Object.getOwnPropertyNames(obj);
+        if (typeof Object.getOwnPropertySymbols === "function") list = list.concat(Object.getOwnPropertySymbols(obj));
+        return list.map(function (propertyName) {
+            return {
+                name: propertyName,
+                descriptor: Object.getOwnPropertyDescriptor(obj, propertyName)
+            };
+        });
+    }
 
     /**
      * Gets a specified object from a json
@@ -87,7 +115,17 @@ ezDefine("Util", function (exports) {
                     return isNaN(object.valueOf()) ? null : object;
                 } else if (object === null) return null;
                 return getPrototypeChain(prototype).reduceRight(function (result, proto) {
-                    for (var key in proto) result[key] = getModel(prototype[key], object[key]);
+                    getObjectDescription(proto).forEach(function (descriptor) {
+                        var newDescriptor = {}, newValue = getModel(prototype[descriptor], object[descriptor]);
+                        if (typeof descriptor.descr.get === "function") newDescriptor.get = descriptor.descr.get;
+                        if (typeof descriptor.descr.set === "function") newDescriptor.set = descriptor.descr.set;
+                        if ("configurable" in descriptor.descr) newDescriptor.configurable = descriptor.descr.configurable;
+                        if ("enumerable" in descriptor.descr) newDescriptor.enumerable = descriptor.descr.enumerable;
+                        if ("writable" in descriptor.descr) newDescriptor.writable = descriptor.descr.writable;
+                        if ("value" in descriptor.descr) newDescriptor.value = newValue;
+                        Object.defineProperty(result, descriptor.name, newDescriptor);
+                        if (!("value" in descriptor.descr)) result[descriptor] = newValue;
+                    });
                     return result;
                 }, {});
             }

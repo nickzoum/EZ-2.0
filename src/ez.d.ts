@@ -1,4 +1,14 @@
 export namespace Util {
+
+    /**
+     * Casts a value as something else
+     * @template {*} E type of cast
+     * @param {E} prototype cast
+     * @param {*} value value to be cast
+     * @returns {E} value cast as the first parameter
+     */
+    function cast<E>(prototype: E, value: *): E;
+
     /**
      * Coalesce for functions (will return an empty function if none are found)
      * @param {Array<Function>} params List of functions to filter
@@ -233,9 +243,9 @@ export interface ObjectListenerScope {
 }
 
 export interface ViewController extends Object {
-    construct?: (...params: Array<any>) => Promise<undefined> | undefined;
+    construct?: (...params: Array<any>) => Promise<undefined> | undefined | void;
     onLoad?: (dom: HTMLElement) => void;
-    emit: (eventName: string, event: *) => void;
+    emit?: (eventName: string, event: *) => void;
 }
 
 export namespace HTML {
@@ -294,7 +304,7 @@ export namespace View {
      * @param {ViewController} controller
      * @returns {void}
      */
-    function registerView(tagName: string, dom: string | HTMLElement | Array<Node> | HTMLCollection | NodeList | NodeListOf<Node>, controller: ViewController): void;
+    function registerView<T extends ViewController>(tagName: string, dom: string | HTMLElement | Array<Node> | HTMLCollection | NodeList | NodeListOf<Node>, controller: T): void;
 
     /**
      * Registers a tagName to a specific view (defined by a url)
@@ -303,7 +313,7 @@ export namespace View {
      * @param {ViewController} controller
      * @returns {void}
      */
-    function registerURL(tagName: string, url: string, controller: ViewController): void;
+    function registerURL<T extends ViewController>(tagName: string, url: string, controller: T): void;
 }
 
 export namespace Mutation {
