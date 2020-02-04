@@ -2,20 +2,67 @@ if (undefined) var Mutation = require("../ez").Mutation;
 
 ezDefine("HTML", function (exports) {
     "use strict";
-    // TODO improve support (select, option...)
+    // TODO improve support 
 
+    /** @type {{
+     *   [valueType: string]: {
+     *     list: Array<HTMLElement>, 
+     *     set: (dom: HTMLElement, value: *) => boolean, 
+     *     get: (dom: HTMLElement) => *
+     *   }} */
     var map = {
-        "value": [
-            window.HTMLTextAreaElement,
-            window.HTMLSelectElement,
-            window.HTMLProgressElement,
-            window.HTMLParamElement,
-            window.HTMLOutputElement,
-            window.HTMLOptionElement,
-            window.HTMLMeterElement,
-            window.HTMLInputElement,
-            window.HTMLDataElement].filter(Boolean),
-        "checked": [HTMLInputElement]
+        "value": {
+            list: [
+                window.HTMLTextAreaElement,
+                window.HTMLSelectElement,
+                window.HTMLProgressElement,
+                window.HTMLParamElement,
+                window.HTMLOutputElement,
+                window.HTMLOptionElement,
+                window.HTMLMeterElement,
+                window.HTMLInputElement,
+                window.HTMLDataElement].filter(Boolean),
+            set: function (dom, value) {
+                dom.setAttribute("value", value);
+                dom.value = value;
+                return true;
+            },
+            get: function (dom) {
+                return dom.value;
+            }
+        },
+        "checked": {
+            list: [HTMLInputElement],
+            set: function (dom, value) {
+                if (dom.type !== "checkbox") return false;
+                dom.setAttribute("checked", value ? "checked" : "unchecked");
+                dom.checked = !!value;
+                return true;
+            },
+            get: function (dom) {
+                return dom.type !== "checkbox" ? dom.checked : undefined;
+            }
+        },
+        "disabled": {
+            list: [
+                HTMLTextAreaElement,
+                HTMLStyleElement,
+                HTMLSelectElement,
+                HTMLOptionElement,
+                HTMLOptGroupElement,
+                HTMLLinkElement,
+                HTMLInputElement,
+                HTMLFieldSetElement,
+                HTMLButtonElement
+            ].filter(Boolean),
+            set: function (dom, value) {
+                dom.disabled = !!value;
+                return true;
+            },
+            get: function (dom) {
+                return dom.disabled;
+            }
+        }
     };
 
     exports.setValue = setValue;
@@ -24,37 +71,28 @@ ezDefine("HTML", function (exports) {
     return exports;
 
     /**
-     * 
-     * @param {HTMLInputElement} dom 
-     * @param {string} valueType 
-     * @param {*} value 
-     * @returns {boolean}
+     * Sets the attribute of an element (handles special cases)
+     * @param {HTMLInputElement} dom element object
+     * @param {string} valueType name of attribute
+     * @param {*} value value to set to attribute
+     * @returns {boolean} true if special case
      */
     function setValue(dom, valueType, value) {
-        if (!(valueType in map) || !(map[valueType].includes(dom.constructor))) {
-            dom.setAttribute(valueType, value);
-            return false;
-        }
-        if (valueType === "value") {
-            dom.setAttribute("value", value);
-            dom.value = value;
-        } else if (valueType === "checked") {
-            if (dom.type !== "checkbox") return;
-            dom.setAttribute("checked", value ? "checked" : "unchecked");
-            dom.checked = !!value;
-        }
-        return true;
+        var mapValue = map[valueType];
+        if (!mapValue || !(mapValue.includes(dom.constructor))) return dom.setAttribute(valueType, value), false;
+        return mapValue.set(dom, value);
     }
 
     /**
-     * 
-     * @param {HTMLInputElement} dom 
-     * @param {string} valueType
-     * @returns {string | boolean}
+     * Gets the attribute of an element (handles special cases)
+     * @param {HTMLElement} dom element object
+     * @param {string} valueType name of attribute
+     * @returns {*} value of element for specified attribute
      */
     function getValue(dom, valueType) {
-        if (valueType in map && map[valueType].includes(dom.constructor)) return dom[valueType];
-        return dom.getAttribute(valueType);
+        var mapValue = map[valueType];
+        if (!mapValue || !(mapValue.includes(dom.constructor))) return dom.getAttribute(valueType);
+        return mapValue.get(dom);
     }
 
     /**
@@ -67,7 +105,11 @@ ezDefine("HTML", function (exports) {
      * @returns {void}
      */
     function on(type, query, listener, root) {
-        if (typeof listener !== "function") throw Error("Listener of Html.on must be a function");
+        if (typeof query === "function") {
+            root = listener;
+            listener = query;
+            query = "*";
+        } else if (typeof listener !== "function") throw Error("Listener of Html.on must be a function");
         if (!(root instanceof HTMLElement)) root = document.body;
         var managingElements = [];
         refresh();

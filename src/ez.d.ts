@@ -251,21 +251,32 @@ export interface ViewController extends Object {
 export namespace HTML {
 
     /**
-     * 
-     * @param {HTMLElement} dom 
-     * @param {string} valueType 
-     * @param {*} value 
-     * @returns {void}
+     * Sets the attribute of an element (handles special cases)
+     * @param {HTMLInputElement} dom element object
+     * @param {string} valueType name of attribute
+     * @param {*} value value to set to attribute
+     * @returns {boolean} true if special case
      */
-    function setValue(dom: HTMLElement, valueType: string, value: any): void;
+    function setValue(dom: HTMLElement, valueType: string, value: *): boolean;
+
 
     /**
-     * 
-     * @param {HTMLInputElement} dom 
-     * @param {string} valueType
-     * @returns {string | boolean}
+     * Gets the attribute of an element (handles special cases)
+     * @param {HTMLElement} dom element object
+     * @param {string} valueType name of attribute
+     * @returns {*} value of element for specified attribute
      */
-    function getValue(dom: HTMLElement, valueType: string): string | boolean;
+    function getValue(dom: HTMLElement, valueType: string): *;
+
+    /**
+     * Adds a global event listener
+     * @template {keyof HTMLElementEventMap} K event type
+     * @param {K} type event type
+     * @param {(this: HTMLElement, ev: HTMLElementEventMap[K]) => void} listener event listener
+     * @param {HTMLElement} [root=document.body] optional root element 
+     * @returns {void}
+     */
+    function on<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => void, root?: HTMLElement): void;
 
     /**
      * Adds a global event listener

@@ -10,6 +10,7 @@ if (undefined) var HTML = require("../ez").HTML;
 
 ezDefine("View", function (exports) {
     "use strict";
+    // TODO use weak sets when available to avoid gc
     // TODO freeze elements behind ez-if (when hidden)!IMPORTANT
     // TODO allow ez-pass on root view
     // TODO allow reverse order views
