@@ -1,120 +1,82 @@
 /* eslint-disable no-console */
-const babelMinify = require("babel-minify");
-const fs = require("fs");
-const colors = require("./colors");
-const packageConfig = require("../package.json");
-const linter = require("./linter");
+var babelMinify = require("babel-minify");
+var fs = require("fs");
+var colors = require("./colors");
+var packageConfig = require("../package.json");
+var linter = require("./linter");
 
-const readWriteOptions = {
-    encoding: "utf8"
-};
+(function (global, factory) {
+    "use strict";
+    factory(exports);
+})(this, function (exports) {
+    var readWriteOptions = { encoding: "utf8" };
+    var debugMode = ["1", "debug", "true", "on"].includes((packageConfig.debugMode || "").toLowerCase());
+    console.log("Debug Mode: " + (debugMode ? colors.green + "On" : colors.magenta + "Off") + colors.reset);
+    var exportMode = ["1", "global", "true", "on", "this"].includes((packageConfig.exportMode || "").toLowerCase());
+    console.log("Export Mode: " + (exportMode ? colors.green + "Global" : colors.magenta + "Package") + colors.reset);
 
-const debugMode = ["1", "debug", "true", "on"].includes((packageConfig.debugMode || "").toLowerCase());
-console.log(`Debug Mode: ${debugMode ? `${colors.green}On` : `${colors.magenta}Off`}${colors.reset}`);
+    exports.minifyScripts = minifyScripts;
+    return exports;
 
-const exportMode = ["1", "global", "true", "on", "this"].includes((packageConfig.exportMode || "").toLowerCase());
-console.log(`Export Mode: ${exportMode ? `${colors.green}Global` : `${colors.magenta}Package`}${colors.reset}`);
+    function minifyScripts() {
+        setUpDirectory("./build");
+        console.log("Handling JS Files: ");
+        var files = [].concat.apply([], arguments);
+        var newFiles = files.map(minifyScript);
+        combineFiles(newFiles, packageConfig.name + "ez.min.js");
+    }
 
-/**
- * @param {Array<string | Array<string>>} files
- * @returns {void}
- */
-exports.minifyScripts = function minifyScripts(...files) {
-    setUpBuild();
-    console.log("Handling JS Files: ");
-    var flatFiles = [].concat(...files.map(file => file instanceof Array ? file : [file]));
-    flatFiles.forEach(minifyScript);
-    combineFiles(flatFiles.map(file => `build/${getFileName(file)}.min.js`), `${packageConfig.name}.min.js`);
-    console.log();
-};
+    /**
+     * 
+     * @param {string} path 
+     */
+    function setUpDirectory(path) {
+        path.split("/").reduce(function (result, directory) {
+            result += "/" + directory;
+            if (!fs.existsSync(result)) fs.mkdirSync(result);
+            return result;
+        });
+    }
 
-/**
- * @param {Array<string | Array<string>>} files
- * @returns {void}
- */
-exports.minifyStyles = function minifyStyles(...files) {
-    setUpBuild();
-    console.log("Handling CSS Files: ");
-    var flatFiles = [].concat(...files.map(file => file instanceof Array ? file : [file]));
-    flatFiles.forEach(minifyStyle);
-    combineFiles(flatFiles.map(file => `build/${getFileName(file)}.min.css`), `${packageConfig.name}.min.css`);
-    console.log();
-};
+    /**
+     * 
+     * @param {Array<string>} fileList 
+     * @param {string} fileName 
+     * @returns {void}
+     */
+    function combineFiles(fileList, fileName) {
+        var newName = "./build/" + fileName;
+        var text = fileList.map(function (file) {
+            return fs.readFileSync(file, readWriteOptions);
+        }).join("\r\n");
+        fs.writeFileSync(newName, text, readWriteOptions);
+        console.log("Files merged and saved at " + toLink(newName));
+    }
 
-function setUpBuild() {
-    if (!fs.existsSync("./build")) fs.mkdirSync("./build");
-}
+    /**
+     * 
+     * @param {string} input 
+     * @returns {void} 
+     */
+    function minifyScript(input) {
+        var text = fs.readFileSync(input, readWriteOptions);
+        setUpDirectory("./build/" + input.split("/").slice(0, -1).join("/"));
+        text = linter.getLinter(text.replace(/((?<!\r)(\n\r?)+)/g, "\n"), exportMode, packageConfig.name)
+            .fixRequire()
+            .fixDefinition().text.replace(/((?<!\r)\n\r?)+/g, "\r\n");
+        if (!debugMode) text = babelMinify(text).code;
+        var newName = "./build/" + input.replace(/\.js$/, ".min.js");
+        fs.writeFileSync(newName, text, readWriteOptions);
+        console.log("File " + toLink("./" + input) + (debugMode ? "" : " was minified and") + " copied to " + toLink(newName));
+        return newName;
+    }
 
-/**
- * 
- * @param {Array<string>} fileList 
- * @param {string} fileName 
- * @returns {void}
- */
-function combineFiles(fileList, fileName) {
-    fs.writeFileSync(`build/${fileName}`, fileList.map(file => fs.readFileSync(file, readWriteOptions)).join("\r\n"), readWriteOptions);
-    console.log(`Files merged and saved at ${toLink(`./build/${fileName}`)}`);
-}
-
-/**
- * 
- * @param {string} input 
- * @returns {void} 
- */
-function minifyScript(input) {
-    var text = fs.readFileSync(input, readWriteOptions);
-    text = linter.getLinter(text.replace(/((?<!\r)(\n\r?)+)/g, "\n"), exportMode, packageConfig.name)
-        .fixRequire()
-        .fixDefinition().text;
-    /* text = linter.fixRequire(text);
-     text = text.replace(/(if[\s]{0,1}\(undefined\).*;)/g, "");
-     text = linter.fixDefinition(text);
-     text = text.replace(/ezDefine\(("\w+"|'\w+'),/, function (fullMatch, moduleName) {
-         moduleName = moduleName.substring(1, moduleName.length - 1);
-         return template.replace(/\{module_name\}/g, moduleName)
-             .replace(/\{browser_path\}/g, exportMode ? "" : `.${packageConfig.name}`)
-             .replace(/\{node_path\}/g, exportMode ? "" : `.${moduleName}`);
-     }).replace(/(const|var|let)?\s*(.*|\{.*\})\s*=\s*require\((".+"|'.+')\);/g, function (fullMatch, type, variable, path) {
-         variable = variable.trim();
-         path = path.trim();
-         return (/\{.*\}/.test(variable) ? variable.substring(1, variable.length - 1).split(",") : [variable]).map(function (txt) {
-             txt = txt.trim();
-             return `${requireIf}var ${txt} = (this.${txt} || require(${path}))${txt === variable ? "" : `.${txt}`};`;
-         }).join("\r\n");
-     }).replace(/((?<!\r)\n\r?)+/g, "\r\n")
-         .replace(/\r\n/g, "\r\n    ");*/
-    if (!debugMode) text = babelMinify(text).code;
-    //fs.writeFileSync(`build/${getFileName(input)}.min.js`, `(function(){\r\n    ${text}\r\n})();`, readWriteOptions);
-    fs.writeFileSync(`build/${getFileName(input)}.min.js`, text, readWriteOptions);
-    console.log(`File ${toLink(`./${input}`)}${debugMode ? "" : " was minified and"} copied to ${toLink(`./build/${getFileName(input)}.min.js`)}`);
-}
-
-/**
- * 
- * @param {string} input 
- * @returns {void} 
- */
-function minifyStyle(input) {
-    var text = fs.readFileSync(input, readWriteOptions);
-    if (!debugMode) console.warn("Style minifier is not setup yet");
-    fs.writeFileSync(`build/${getFileName(input)}.min.css`, text, readWriteOptions);
-    console.log(`File ${toLink(`./${input}`)} was minified and copied to ${toLink(`./build/${getFileName(input)}.min.css`)}`);
-}
-
-/**
- * 
- * @param {string} path
- * @returns {string} 
- */
-function getFileName(path) {
-    return path.split("/").pop().split(".")[0];
-}
-
-/**
- * 
- * @param {string} fileName 
- * @returns {string}
- */
-function toLink(fileName) {
-    return `${/min\.(js|css)$|min$/.test(fileName) ? colors.magenta : colors.green}${colors.underscore}${fileName}${colors.reset}`;
-}
+    /**
+     * 
+     * @param {string} fileName 
+     * @returns {string}
+     */
+    function toLink(fileName) {
+        return (/\.min\.js/.test(fileName) ? colors.magenta : colors.green) + colors.underscore + fileName + colors.reset;
+    }
+});

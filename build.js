@@ -1,4 +1,4 @@
-const minify = require("./node/minify");
+var minify = require("./node/minify");
 
 minify.minifyScripts([
     "src/util/polyfills.js",

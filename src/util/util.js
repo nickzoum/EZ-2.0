@@ -102,10 +102,12 @@ ezDefine("Util", function (exports) {
         return ({
             "undefined": function () { return undefined; },
             "function": function () { return prototype; },
-            "symbol": function () { return prototype; },
             "string": function () { return json; },
             "boolean": function () { return !!json; },
             "number": function () { return +json; },
+            "symbol": function () {
+                if (typeof json === "string") return Symbol.for(json);
+            },
             "object": function () {
                 var object = typeof json === "string" ? fromJson(json) : json;
                 if (prototype instanceof Array) {
@@ -120,7 +122,7 @@ ezDefine("Util", function (exports) {
                 return getPrototypeChain(prototype).reduceRight(function (result, proto) {
                     if (protoToSkip === proto) return result;
                     getObjectDescription(proto).forEach(function (descriptor) {
-                        var newDescriptor = {}, newValue = getModel(prototype[descriptor.name], object[descriptor.name]);
+                        var newDescriptor = {}, newValue = typeof descriptor.name === "symbol" ? prototype[descriptor.name] : getModel(prototype[descriptor.name], object[descriptor.name]);
                         if (typeof descriptor.descr.get === "function") newDescriptor.get = descriptor.descr.get;
                         if (typeof descriptor.descr.set === "function") newDescriptor.set = descriptor.descr.set;
                         if ("configurable" in descriptor.descr) newDescriptor.configurable = descriptor.descr.configurable;
