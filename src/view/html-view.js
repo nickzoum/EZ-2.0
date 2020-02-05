@@ -12,9 +12,7 @@ ezDefine("View", function (exports) {
     "use strict";
     // TODO use weak sets when available to avoid gc
     // TODO freeze elements behind ez-if (when hidden)!IMPORTANT
-    // TODO allow ez-pass on root view
     // TODO allow reverse order views
-    // TODO combine replaceScope with parent scope everywhere
     // TODO create ez-let
 
     var specialClasses = ["loop", "let", "pass", "if"];
@@ -150,21 +148,25 @@ ezDefine("View", function (exports) {
             container.dispatchEvent(customEvent);
         });
         if (typeof newController.construct === "function") {
-            if (container.hasAttribute("ez-pass") && "treeID" in container) {
+            if (container.hasAttribute("ez-pass")) {
                 var scope = {};
-                var parent = container;
-                while (parent && (parent === container || !hasValidTag(parent))) {
-                    if ("scopeID" in parent) {
-                        var domScope = scopes[parent.scopeID];
-                        for (var property in domScope) {
-                            if (!(property in scope)) scope[property] = domScope[property];
+                var parentController = {};
+                if ("treeID" in container) {
+                    var parent = container;
+                    while (parent && (parent === container || !hasValidTag(parent))) {
+                        if ("scopeID" in parent) {
+                            var domScope = scopes[parent.scopeID];
+                            for (var property in domScope) {
+                                if (!(property in scope)) scope[property] = domScope[property];
+                            }
                         }
+                        parent = parent.parentNode;
                     }
-                    parent = parent.parentNode;
+                    parentController = tagTree.controller;
                 }
                 var tagTree = trees[container.treeID], paramList = tagTree.pass;
                 paramList = paramList instanceof Array ? paramList : [paramList];
-                paramList = paramList.map(function (param) { return Expressions.evaluateValue(tagTree.controller, param, scope); });
+                paramList = paramList.map(function (param) { return Expressions.evaluateValue(parentController, param, scope); });
                 try { var promise = newController.construct.apply(newController, paramList); }
                 catch (err) {
                     console.error("Error in construct function");
