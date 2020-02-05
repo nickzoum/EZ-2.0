@@ -1,7 +1,6 @@
 if (undefined) var Parser = require("../ez").Parser;
 if (undefined) var Util = require("../ez").Util;
 
-// TODO allow all `\s` to work as ` `
 // TODO allow numeric attributes (keep active attribute instead of Object.keys().pop)
 /** @typedef {import("../ez")}  JSDoc */
 ezDefine("Parser", function (exports) {
@@ -129,6 +128,15 @@ ezDefine("Parser", function (exports) {
                             "HTMLContent": onDefault
                         }[scope.type] || syntax)();
                     },
+                    "\n": function () {
+                        this[" "]();
+                    },
+                    "\r": function () {
+                        this[" "]();
+                    },
+                    "\t": function () {
+                        this[" "]();
+                    },
                     "=": function () {
                         ({
                             "Scope": function () {
@@ -166,15 +174,6 @@ ezDefine("Parser", function (exports) {
                                 else throw SyntaxError("Invalid character '/' at index " + index);
                             }
                         }[scope.type] || syntax)();
-                    },
-                    "\n": function () {
-                        this[" "]();
-                    },
-                    "\r": function () {
-                        this[" "]();
-                    },
-                    "\t": function () {
-                        this[" "]();
                     },
                     "$": function () {
                         ({

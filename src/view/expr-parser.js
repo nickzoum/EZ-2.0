@@ -2,8 +2,6 @@ if (undefined) var Util = require("../ez").Util;
 
 /** @typedef {import("../ez")} JSDoc */
 
-// TODO numbers in accessors list[0]
-// TODO fix eror when parsing ('!x || !x')
 ezDefine("Parser", function (exports) {
     "use strict";
 
@@ -72,7 +70,7 @@ ezDefine("Parser", function (exports) {
             text: ""
         };
         var scopeList = [scope]; // TODO support scopelist in html-parser and other scripts
-        var dependencies = {}; // TODO implement dependencies
+        var dependencies = {};
         var char = pageText[index];
         while (index < pageText.length && (char !== startCharacter || scope.type === "TextLiteral")) {
             var actionMap = {
@@ -207,6 +205,10 @@ ezDefine("Parser", function (exports) {
                     if (Util.startsWith(pageText, index, "?.")) return this["."]("?.");
                     var self = this;
                     var actionMap = {
+                        "NumberLiteral": function () {
+                            goUp(19);
+                            self["?"]();
+                        },
                         "Property": function () {
                             goUp(19);
                             // TODO check ]
@@ -497,6 +499,10 @@ ezDefine("Parser", function (exports) {
                     scopeList[scopeList.length - 1].text += sign;
                     char = "";
                 },
+                "Conversion": function () {
+                    goUp();
+                    onArithmetic(sign);
+                },
                 "TextLiteral": onDefault
             };
             (actionMap[scope.type] || syntax).call(actionMap);
@@ -677,6 +683,18 @@ ezDefine("Parser", function (exports) {
         }
 
         function sortExpression() {
+            var hasOperation;
+            scope.content.forEach(function (childScope, index) {
+                var isOperator = childScope.type === "Operator";
+                if (hasOperation === isOperator) {
+                    var previousText = scope.content[index - 1].content || scope.content[index - 1].text;
+                    var currentText = childScope.content || childScope.text;
+                    var text = scope.text;
+                    var message = hasOperation ? "there was no variable between the operators" : "there was no operator between the variables";
+                    throw SyntaxError("Invalid Sequence, " + message + " '" + previousText + "' and '" + currentText + "' in the expression '" + text + "'");
+                }
+                hasOperation = isOperator;
+            });
             operatorOrder.reduce(function (result, precedence) {
                 var condition = precedence.order === "leftToRight";
                 for (var index = condition ? 1 : result.length - 2; condition ? index <= result.length - 2 : index >= 1;) {
