@@ -23,7 +23,7 @@ var linter = require("./linter");
         console.log("Handling JS Files: ");
         var files = [].concat.apply([], arguments);
         var newFiles = files.map(minifyScript);
-        combineFiles(newFiles, packageConfig.name + "ez.min.js");
+        combineFiles(newFiles, packageConfig.name + ".min.js");
     }
 
     /**
@@ -61,9 +61,9 @@ var linter = require("./linter");
     function minifyScript(input) {
         var text = fs.readFileSync(input, readWriteOptions);
         setUpDirectory("./build/" + input.split("/").slice(0, -1).join("/"));
-        text = linter.getLinter(text.replace(/((?<!\r)(\n\r?)+)/g, "\n"), exportMode, packageConfig.name)
+        text = linter.getLinter(text, exportMode, packageConfig.name)
             .fixRequire()
-            .fixDefinition().text.replace(/((?<!\r)\n\r?)+/g, "\r\n");
+            .fixDefinition().text.replace(/(\n|\r)+/g, "\r\n");
         if (!debugMode) text = babelMinify(text).code;
         var newName = "./build/" + input.replace(/\.js$/, ".min.js");
         fs.writeFileSync(newName, text, readWriteOptions);

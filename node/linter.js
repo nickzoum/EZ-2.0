@@ -4,7 +4,7 @@ const ezDefineTemplate = `(function (global, factory) {
     "use strict";
     if (typeof exports !== "undefined" && typeof module !== "undefined") module.exports{node_path} = factory(exports{node_path} || {});
     else {
-        if(typeof global{browser_path} === "undefined") global{browser_path} = {};
+        if (typeof global{browser_path} === "undefined") global{browser_path} = {};
         factory(global{browser_path}.{module_name} = global{browser_path}.{module_name} || {});
     }
 })(this,`;
