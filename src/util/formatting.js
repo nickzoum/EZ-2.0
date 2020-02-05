@@ -27,7 +27,6 @@ ezDefine("Formatting", function (exports) {
     function numberToString(number, format) {
         // TODO improve accuracy
         // eslint-disable-next-line valid-typeof
-        if (format === "?") return number;
         if ((typeof number !== "number" && typeof number !== "bigint") || isNaN(number)) number = +number || 0; // jshint ignore:line
         var sign = number < 0 ? "-" : "";
         number = Math.abs(number);

@@ -162,9 +162,11 @@ ezDefine("View", function (exports) {
                         }
                         parent = parent.parentNode;
                     }
+                    var tagTree = trees[container.treeID], paramList = tagTree.pass;
                     parentController = tagTree.controller;
+                } else {
+                    paramList = Parser.parseExpression(container.getAttribute("ez-pass"));
                 }
-                var tagTree = trees[container.treeID], paramList = tagTree.pass;
                 paramList = paramList instanceof Array ? paramList : [paramList];
                 paramList = paramList.map(function (param) { return Expressions.evaluateValue(parentController, param, scope); });
                 try { var promise = newController.construct.apply(newController, paramList); }

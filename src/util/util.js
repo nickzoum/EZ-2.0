@@ -104,8 +104,8 @@ ezDefine("Util", function (exports) {
             "function": function () { return prototype; },
             "string": function () { return json; },
             "boolean": function () { return !!json; },
-            "number": function () { return +json; },
-            "bigint": function () { return typeof BigInt === "function" ? BigInt(json) : +json; },
+            "number": function () { return isNaN(prototype) && (json === null || json == null) ? null : +json; },
+            "bigint": function () { return typeof BigInt === "function" ? BigInt(json) : getModel(0, json); },
             "symbol": function () {
                 if (typeof json === "string") return Symbol.for(json);
             },
