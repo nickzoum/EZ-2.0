@@ -105,6 +105,7 @@ ezDefine("Util", function (exports) {
             "string": function () { return json; },
             "boolean": function () { return !!json; },
             "number": function () { return +json; },
+            "bigint": function () { return typeof BigInt === "function" ? BigInt(json) : +json; },
             "symbol": function () {
                 if (typeof json === "string") return Symbol.for(json);
             },
