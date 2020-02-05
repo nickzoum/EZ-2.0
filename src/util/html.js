@@ -40,7 +40,7 @@ ezDefine("HTML", function (exports) {
                 return true;
             },
             get: function (dom) {
-                return dom.type !== "checkbox" ? dom.checked : undefined;
+                return dom.type === "checkbox" ? dom.checked : undefined;
             }
         },
         "disabled": {
