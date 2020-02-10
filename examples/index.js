@@ -1,7 +1,7 @@
-if (undefined) var { View, Parser, Expressions } = require("../src/ez");
+if (undefined) var { View } = require("../src/ez");
 
 
-View.registerView("test", `<input type="text" ez-value="text"/><foo ez-pass="text"/>`, {
+View.registerView("test", `<input type="text" ez-value="text"/><input type="text" ez-disabled="!text"/>`, {
     text: ""
 });
 

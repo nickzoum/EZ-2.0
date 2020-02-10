@@ -251,9 +251,7 @@ ezDefine("View", function (exports) {
                     }
                 }
             } else if (node instanceof Attr) {
-                if (node.ownerElement instanceof HTMLElement) {
-                    if (node.ownerElement) HTML.setValue(node.ownerElement, node.name, Expressions.evaluateValue(newController, tree, scope));
-                }
+                HTML.setValue(node, Expressions.evaluateValue(newController, tree, scope));
             } else if (node instanceof Text) {
                 if ("type" in tree) {
                     if (node.parentNode instanceof HTMLElement) {
@@ -387,21 +385,21 @@ ezDefine("View", function (exports) {
                             trees[++idCounter] = scope.ezAttributes[key][0];
                             Mutation.setTree(attribute, idCounter);
                             try { dom.setAttributeNode(attribute); }
-                            catch (err) {/* Weird IE interaction */ }
-                            if (HTML.setValue(dom, key, Expressions.evaluateValue(controller, scope.ezAttributes[key][0], scopes[scopeID]))) {
+                            catch (err) { console.error(err); }
+                            if (HTML.setValue(attribute, Expressions.evaluateValue(controller, scope.ezAttributes[key][0], scopes[scopeID]))) {
                                 var content = scope.ezAttributes[key][0].content;
                                 if (content.length === 1) {
                                     // TODO check if needs parent get inside listener
                                     var parent = Expressions.getParent(controller, content[0], scopes[scopeID]);
                                     if (parent) {
-                                        (function (key) {
+                                        (function (attr) {
                                             dom.addEventListener("input", function () {
-                                                parent.parent[parent.key] = HTML.getValue(dom, key);
+                                                parent.parent[parent.key] = HTML.getValue(attr);
                                             });
                                             dom.addEventListener("change", function () {
-                                                parent.parent[parent.key] = HTML.getValue(dom, key);
+                                                parent.parent[parent.key] = HTML.getValue(attr);
                                             });
-                                        })(key);
+                                        })(attribute);
                                     }
                                 }
                             }

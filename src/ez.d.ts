@@ -257,8 +257,15 @@ export namespace HTML {
      * @param {*} value value to set to attribute
      * @returns {boolean} true if special case
      */
-    function setValue(dom: HTMLElement, valueType: string, value: *): boolean;
+    function setValue(dom: HTMLElement, valueType: string, value: any): boolean;
 
+    /**
+     * Sets the attribute of an element (handles special cases)
+     * @param {Attr} attribute attribute object
+     * @param {*} value value to set to attribute
+     * @returns {boolean} true if special case
+     */
+    function setValue(attribute: Attr, value: any): boolean;
 
     /**
      * Gets the attribute of an element (handles special cases)
@@ -266,7 +273,14 @@ export namespace HTML {
      * @param {string} valueType name of attribute
      * @returns {*} value of element for specified attribute
      */
-    function getValue(dom: HTMLElement, valueType: string): *;
+    function getValue(dom: HTMLElement, valueType: string): any;
+
+    /**
+     * Gets the attribute of an element (handles special cases)
+     * @param {Attr} attribute attribute object
+     * @returns {*} value of element for specified attribute
+     */
+    function getValue(attribute: Attr): any;
 
     /**
      * Adds a global event listener
