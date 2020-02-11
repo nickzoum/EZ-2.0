@@ -93,6 +93,27 @@ export namespace Http {
      * @returns {RequestPromise} Promise that is activated when the request is loaded
      */
     function get(url: string, options?: HttpOptions): RequestPromise;
+
+
+    /**
+     * Sends a put request
+     * @param {string} url Where the request is going to be sent
+     * @param {object} [data] The data that are going to be sent
+     * @param {HttpOptions} options optional options for the request / headers
+     * @returns {RequestPromise} Promise that is activated when the request is loaded
+     */
+    function put(url: string, data?: Object, options?: HttpOptions): RequestPromise;
+}
+
+export class Http {
+    private constructor() { }
+    /**
+     * Sends a delete request
+     * @param {string} url Where the request is going to be sent
+     * @param {HttpOptions} options optional options for the request / headers
+     * @returns {RequestPromise} Promise that is activated when the request is loaded
+     */
+    static ["delete"] = (url: string, options?: HttpOptions) => RequestPromise;
 }
 
 export namespace Enumerables {

@@ -14,7 +14,9 @@ ezDefine("Http", function (exports) {
     exports.deleteAllCookies = deleteAllCookies;
     exports.getCookieByName = getCookieByName;
     exports.setCookie = setCookie;
+    exports.delete = _delete;
     exports.post = post;
+    exports.put = put;
     exports.get = get;
     return exports;
 
@@ -37,6 +39,27 @@ ezDefine("Http", function (exports) {
      */
     function post(url, data, options) {
         return abstractRequest("post", url, data, options);
+    }
+
+    /**
+     * Sends a put request
+     * @param {string} url Where the request is going to be sent
+     * @param {Object} [data] The data that are going to be sent
+     * @param {HttpOptions} options optional options for the request / headers
+     * @returns {Promise<string>} Promise that is activated when the request is loaded
+     */
+    function put(url, data, options) {
+        return abstractRequest("put", url, data, options);
+    }
+
+    /**
+     * Sends a delete request
+     * @param {string} url Where the request is going to be sent
+     * @param {HttpOptions} options optional options for the request / headers
+     * @returns {Promise<string>} Promise that is activated when the request is loaded
+     */
+    function _delete(url, options) {
+        return abstractRequest("delete", url, null, options);
     }
 
     /**
