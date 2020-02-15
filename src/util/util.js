@@ -124,14 +124,14 @@ ezDefine("Util", function (exports) {
                     if (protoToSkip === proto) return result;
                     getObjectDescription(proto).forEach(function (descriptor) {
                         var newDescriptor = {}, newValue = typeof descriptor.name === "symbol" ? prototype[descriptor.name] : getModel(prototype[descriptor.name], object[descriptor.name]);
-                        if (typeof descriptor.descr.get === "function") newDescriptor.get = descriptor.descr.get;
-                        if (typeof descriptor.descr.set === "function") newDescriptor.set = descriptor.descr.set;
+                        if (typeof descriptor.descr.get === "function") newDescriptor.get = function () { return newValue; };
+                        if (typeof descriptor.descr.set === "function") newDescriptor.set = function (value) { newValue = value; };
                         if ("configurable" in descriptor.descr) newDescriptor.configurable = descriptor.descr.configurable;
                         if ("enumerable" in descriptor.descr) newDescriptor.enumerable = descriptor.descr.enumerable;
                         if ("writable" in descriptor.descr) newDescriptor.writable = descriptor.descr.writable;
                         if ("value" in descriptor.descr) newDescriptor.value = newValue;
                         Object.defineProperty(result, descriptor.name, newDescriptor);
-                        if (!("value" in descriptor.descr)) result[descriptor] = newValue;
+                        if (!("value" in descriptor.descr)) result[descriptor.name] = newValue;
                     });
                     return result;
                 }, {});

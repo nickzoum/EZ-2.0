@@ -7,7 +7,7 @@ export namespace Util {
      * @param {*} value value to be cast
      * @returns {E} value cast as the first parameter
      */
-    function cast<E>(prototype: E, value: *): E;
+    function cast<E>(prototype: E, value: any): E;
 
     /**
      * Coalesce for functions (will return an empty function if none are found)
@@ -266,7 +266,7 @@ export interface ObjectListenerScope {
 export interface ViewController extends Object {
     construct?: (...params: Array<any>) => Promise<undefined> | undefined | void;
     onLoad?: (dom: HTMLElement) => void;
-    emit?: (eventName: string, event: *) => void;
+    emit?: (eventName: string, event: any) => void;
 }
 
 export namespace HTML {
@@ -378,7 +378,7 @@ export namespace Mutation {
      * @param {*} value value of property to be added
      * @returns {T} initial object
      */
-    function setValue<T extends {}>(obj: T, key: string, value: *): T;
+    function setValue<T extends {}>(obj: T, key: string, value: any): T;
 
     /**
      * 
@@ -386,7 +386,7 @@ export namespace Mutation {
      * @param {(target: {}, property: string, type: "get" | "set", value: *, path: string) => void} callBack
      * @returns {void}
      */
-    function addListener(obj: {}, callBack: (target: {}, property: string, type: "get" | "set", value: *, path: string) => void): void;
+    function addListener(obj: {}, callBack: (target: {}, property: string, type: "get" | "set", value: any, path: string) => void): void;
 
     /**
      * 
