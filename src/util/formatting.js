@@ -270,6 +270,12 @@ ezDefine("Formatting", function (exports) {
     exports.format = format;
     return exports;
 
+    /**
+     * Formats a value to string
+     * @param {*} item value
+     * @param {string} format format of value
+     * @returns {string} formatted value
+     */
     function format(item, format) {
         if (format === "json") return JSON.stringify(item);
         return formatMap[typeof item](item, format);

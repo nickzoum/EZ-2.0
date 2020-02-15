@@ -44,6 +44,7 @@ ezDefine("Mutation", function (exports) {
                 "object": function () {
                     if (oldObject[key] instanceof Array) newObject[key] = oldObject[key].map(deepClone);
                     else if (oldObject[key] instanceof Date) newObject[key] = new Date(oldObject[key].valueOf());
+                    else if (oldObject[key] instanceof URL) newObject[key] = new URL(oldObject[key].href);
                     else newObject[key] = deepClone(oldObject[key]);
                 },
                 "string": function () {

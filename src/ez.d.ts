@@ -106,14 +106,14 @@ export namespace Http {
 }
 
 export class Http {
-    private constructor() { }
+    private constructor();
     /**
      * Sends a delete request
      * @param {string} url Where the request is going to be sent
      * @param {HttpOptions} options optional options for the request / headers
      * @returns {RequestPromise} Promise that is activated when the request is loaded
      */
-    static ["delete"] = (url: string, options?: HttpOptions) => RequestPromise;
+    static ["delete"]: (url: string, options?: HttpOptions) => Http.RequestPromise;
 }
 
 export namespace Enumerables {
@@ -441,6 +441,62 @@ export namespace Expressions {
      * @returns { parent: {}, key: string }
      */
     function getParent(controller: ViewController, expression: EZExpression, scope?: { [index: string]: any }): { parent: {}, key: string };
+}
+
+export namespace Formatting {
+
+    /**
+     * Changes the thousand separator
+     * @param {"." | ","} newSeparator
+     * @returns {void} 
+     */
+    function setThousandSeparator(newSeparator: "." | ","): void;
+
+    /**
+     * Changes the thousand separator
+     * @param {string} newSign
+     * @returns {void} 
+     */
+    function setPercentageSign(newSign: string): void;
+
+    /**
+     * Changes the currency sign
+     * @param {string} newSign
+     * @returns {void} 
+     */
+    function setCurrencySign(newSign: string): void;
+
+    /**
+     * Changes the decimal point of numbers
+     * @param {"." | ","} newPoint
+     * @returns {void} 
+     */
+    function setDecimalPoint(newPoint: "." | ","): void;
+
+    /**
+     * Custom toString method for numbers
+     * @param {number} number number to be transformed
+     * @param {string} format form of requested number
+     * @returns {string} string form of requested number 
+     */
+    function numberToString(number: number, format: string): string;
+
+    /**
+     * Custom toString method for dates
+     * @param {Date} date date object
+     * @param {string} format string format
+     * @returns {string} string form of requested date
+     */
+    function dateToString(date: Date, format: string): string;
+
+    /**
+     * Formats a value to string
+     * @param {*} item value
+     * @param {string} format format of value
+     * @returns {string} formatted value
+     */
+    function format(item: any, format: string): string;
+
 }
 
 export as namespace JSDoc;

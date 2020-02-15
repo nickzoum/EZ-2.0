@@ -2,6 +2,8 @@ if (undefined) var Util = require("../ez").Util;
 
 /** @typedef {import("../ez")} JSDoc */
 
+// TODO implement array and object literals
+
 ezDefine("Parser", function (exports) {
     "use strict";
 
@@ -242,6 +244,13 @@ ezDefine("Parser", function (exports) {
                             //if (scope.parent === undefined) scope = scope.content[scope.content.length - 1];
                             var self = this;
                             var previous = scope.content[scope.content.length - 1];
+                            if (!previous) {
+                                ({
+                                    "[": function () {
+
+                                    }
+                                }[fullText] || syntax)();
+                            }
                             var previousMap = {
                                 "Parameter": function () {
                                     scope = previous;

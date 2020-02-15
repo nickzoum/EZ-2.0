@@ -2,7 +2,7 @@
     "name": "ez",
     "version": "2.0.0",
     "description": "",
-    "author": "ez4pp",
+    "author": "ezapp",
     "license": "ISC",
     "scripts": {
         "build": "node build.js"
