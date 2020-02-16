@@ -1,13 +1,13 @@
 if (undefined) var { View } = require("../src/ez");
 
 
-View.registerView("test", `<input type="text" ez-value="text"/><input type="text" ez-disabled="!text"/>`, {
-    text: ""
-});
+View.registerView("test", `<span class="a" ez-class="b" />`, {
+    b: "c",
+    onLoad: function () {
+        var self = this;
 
-View.registerView("foo", `<span>'\${text}'</span>`, {
-    construct: function (text) {
-        this.text = text;
-    },
-    text: ""
+        setTimeout(function () {
+            self.b = "asd";
+        }, 5000);
+    }
 });

@@ -251,7 +251,9 @@ ezDefine("View", function (exports) {
                     }
                 }
             } else if (node instanceof Attr) {
-                HTML.setValue(node, Expressions.evaluateValue(newController, tree, scope));
+                var attributeValue = Expressions.evaluateValue(newController, tree, scope);
+                if (tree.parent && tree.parent.attributes && node.name in tree.parent.attributes) var initialValue = tree.parent.attributes[node.name];
+                HTML.setValue(node, initialValue ? (initialValue + attributeValue) : attributeValue);
             } else if (node instanceof Text) {
                 if ("type" in tree) {
                     if (node.parentNode instanceof HTMLElement) {
@@ -386,7 +388,9 @@ ezDefine("View", function (exports) {
                             Mutation.setTree(attribute, idCounter);
                             try { dom.setAttributeNode(attribute); }
                             catch (err) { console.error(err); }
-                            if (HTML.setValue(attribute, Expressions.evaluateValue(controller, scope.ezAttributes[key][0], scopes[scopeID]))) {
+                            var attributeValue = Expressions.evaluateValue(controller, scope.ezAttributes[key][0], scopes[scopeID]);
+                            if (scope.attributes && key in scope.attributes) var initialValue = scope.attributes[key];
+                            if (HTML.setValue(attribute, initialValue ? (initialValue + attributeValue) : attributeValue)) {
                                 var content = scope.ezAttributes[key][0].content;
                                 if (content.length === 1) {
                                     // TODO check if needs parent get inside listener
