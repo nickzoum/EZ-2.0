@@ -21,9 +21,11 @@ var linter = require("./linter");
     function minifyScripts() {
         setUpDirectory("./build");
         console.log("Handling JS Files: ");
+        /** @type {Array<string>} */
         var files = [].concat.apply([], arguments);
         var newFiles = files.map(minifyScript);
-        combineFiles(newFiles, packageConfig.name + ".min.js");
+        combineFiles(newFiles.map(function (item) { return item[0]; }), packageConfig.name + ".js");
+        combineFiles(newFiles.map(function (item) { return item[1]; }), packageConfig.name + ".min.js");
     }
 
     /**
@@ -56,19 +58,21 @@ var linter = require("./linter");
     /**
      * 
      * @param {string} input 
-     * @returns {void} 
+     * @returns {Array<string>} 
      */
     function minifyScript(input) {
         var text = fs.readFileSync(input, readWriteOptions);
+        var newName = "./build/" + input, newNameMin = newName.replace(/\.js$/, ".min.js");
         setUpDirectory("./build/" + input.split("/").slice(0, -1).join("/"));
         text = linter.getLinter(text, exportMode, packageConfig.name)
             .fixRequire()
             .fixDefinition().text.replace(/(\n|\r)+/g, "\r\n");
-        if (!debugMode) text = babelMinify(text).code;
-        var newName = "./build/" + input.replace(/\.js$/, ".min.js");
         fs.writeFileSync(newName, text, readWriteOptions);
-        console.log("File " + toLink("./" + input) + (debugMode ? "" : " was minified and") + " copied to " + toLink(newName));
-        return newName;
+        console.log("File " + toLink("./" + input) + " was copied to " + toLink(newName));
+        text = babelMinify(text).code;
+        fs.writeFileSync(newName, text, readWriteOptions);
+        console.log("File " + toLink("./" + input) + " was minified and copied to " + toLink(newNameMin));
+        return [newName, newNameMin];
     }
 
     /**
