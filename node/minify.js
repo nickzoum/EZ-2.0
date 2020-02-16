@@ -70,7 +70,7 @@ var linter = require("./linter");
         fs.writeFileSync(newName, text, readWriteOptions);
         console.log("File " + toLink("./" + input) + " was copied to " + toLink(newName));
         text = babelMinify(text).code;
-        fs.writeFileSync(newName, text, readWriteOptions);
+        fs.writeFileSync(newNameMin, text, readWriteOptions);
         console.log("File " + toLink("./" + input) + " was minified and copied to " + toLink(newNameMin));
         return [newName, newNameMin];
     }
