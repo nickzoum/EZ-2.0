@@ -244,13 +244,6 @@ ezDefine("Parser", function (exports) {
                             //if (scope.parent === undefined) scope = scope.content[scope.content.length - 1];
                             var self = this;
                             var previous = scope.content[scope.content.length - 1];
-                            if (!previous) {
-                                ({
-                                    "[": function () {
-
-                                    }
-                                }[fullText] || syntax)();
-                            }
                             var previousMap = {
                                 "Parameter": function () {
                                     scope = previous;
@@ -345,8 +338,8 @@ ezDefine("Parser", function (exports) {
                     while (scope && scope.type !== "Expression") goUp();
                     if (!scope || scope.type !== "Expression") throw Error("Unexpected closing parenthesis ')'");
                     sortExpression();
-                    goUp();
-                    goUp();
+                    goUp(16);
+                    goUp(16);
                 },
                 ",": function () {
                     if (scope.type === "TextLiteral") return onDefault();
@@ -683,6 +676,7 @@ ezDefine("Parser", function (exports) {
             if (scope.type in actionMap) actionMap[scope.type]();
         }
 
+        /** @param {number} [precedence] if larger than 16 will stop at conversions and parameters */
         function goUp(precedence) {
             if (!scope.parent) throw SyntaxError("Unexpected expression closing character " + pageText[index]);
             addDependencies();
