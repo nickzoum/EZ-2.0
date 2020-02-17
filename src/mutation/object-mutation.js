@@ -152,13 +152,13 @@ ezDefine("Mutation", function (exports) {
         function get() {
             return oldGet();
             // TODO allow option to skip
-            var result = oldGet();
-            for (var refKey in reference.references) {
-                if (reference.references[refKey] && typeof reference.references[refKey].callBack === "function") {
-                    reference.references[refKey].callBack(obj, key, "get", result, reference.references[refKey].path);
-                }
-            }
-            return result;
+            /*var result = oldGet();
+             for (var refKey in reference.references) {
+                 if (reference.references[refKey] && typeof reference.references[refKey].callBack === "function") {
+                     reference.references[refKey].callBack(obj, key, "get", result, reference.references[refKey].path);
+                 }
+             }
+             return result;*/
         }
 
         function set(newValue) {

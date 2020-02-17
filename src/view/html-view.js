@@ -393,18 +393,16 @@ ezDefine("View", function (exports) {
                             if (HTML.setValue(attribute, initialValue ? (initialValue + attributeValue) : attributeValue)) {
                                 var content = scope.ezAttributes[key][0].content;
                                 if (content.length === 1) {
-                                    // TODO check if needs parent get inside listener
-                                    var parent = Expressions.getParent(controller, content[0], scopes[scopeID]);
-                                    if (parent) {
-                                        (function (attr) {
-                                            dom.addEventListener("input", function () {
-                                                parent.parent[parent.key] = HTML.getValue(attr);
-                                            });
-                                            dom.addEventListener("change", function () {
-                                                parent.parent[parent.key] = HTML.getValue(attr);
-                                            });
-                                        })(attribute);
-                                    }
+                                    (function (attr, content) {
+                                        dom.addEventListener("input", function () {
+                                            var parent = Expressions.getParent(controller, content, scopes[scopeID]);
+                                            if (parent && parent.parent) parent.parent[parent.key] = HTML.getValue(attr);
+                                        });
+                                        dom.addEventListener("change", function () {
+                                            var parent = Expressions.getParent(controller, content, scopes[scopeID]);
+                                            if (parent && parent.parent) parent.parent[parent.key] = HTML.getValue(attr);
+                                        });
+                                    })(attribute, content[0]);
                                 }
                             }
                             addDependencies(dependencies, scope.ezAttributes[key][0].dependencies, attribute, replaceScope, scopeID);
