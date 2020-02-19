@@ -108,7 +108,7 @@ ezDefine("Formatting", function (exports) {
      * @returns {string}
      */
     function numberRoundInteger(number, replaceWith) {
-        return Math.floor(number).toLocaleString("en-US").replace(thousandSeparator.current, replaceWith);
+        return Math.round(number).toLocaleString("en-US").replace(thousandSeparator.current, replaceWith);
     }
 
     /**
