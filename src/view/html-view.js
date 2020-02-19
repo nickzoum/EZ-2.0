@@ -15,7 +15,81 @@ ezDefine("View", function (exports) {
     // TODO allow reverse order views
     // TODO create ez-let
 
-    var specialClasses = ["loop", "let", "pass", "if"];
+
+    /** @type {{[className: string]: (dom: HTMLElement, controller:JSDoc.ViewController, scope: Array<JSDoc.EZExpression>, dependencies:{[index: string]: Array<Attr>}, scopeID:string, replaceScope:{[index: string]: string}) => {promise: Promise, node: node}}} */
+    var specialClasses = {
+        "if": function (dom, controller, scope, dependencies, scopeID, replaceScope) {
+            var attribute = dom.getAttributeNode("ez-if");
+            addDependencies(dependencies, scope[0].dependencies, attribute, replaceScope, scopeID);
+            var comment = document.createComment(""), commentID = ++idCounter;
+            comments[commentID] = {
+                comment: comment,
+                if: scope,
+                show: function () { called = true; },
+                cancel: function () { cancelled = false; }
+            };
+            Mutation.setPlaceholder(attribute, commentID);
+            if (!Expressions.evaluateValue(controller, scope[0], scopes[scopeID])) {
+                var called = false, cancelled = false, promise = new Promise(function (resolve, reject) {
+                    if (called || cancelled) onResult();
+                    if (called) resolve();
+                    else if (cancelled) reject();
+                    else {
+                        comments[commentID].show = function () { called = true; onResult(); resolve(); };
+                        comments[commentID].cancel = function () { onResult(); reject(); };
+                    }
+
+                    function onResult() {
+                        comments[commentID].show = function () { };
+                        comments[commentID].cancel = function () { };
+                    }
+                });
+                return {
+                    promise: promise,
+                    node: comment
+                };
+            }
+        },
+        "loop": function (dom, controller, scope, dependencies, scopeID, replaceScope, self) {
+            if (self === scope[0].parent) return;
+            var placeHolder = document.createTextNode("");
+            var treeID = ++idCounter;
+            trees[treeID] = {
+                loop: scope,
+                placeHolder: placeHolder,
+                parentScope: scopes[scopeID],
+                replaceScope: replaceScope,
+                children: {},
+                scope: scope[0].parent
+            };
+            Mutation.setTree(placeHolder, treeID);
+            if (scope[0].content[0].left.type !== "Property") throw Error("Invalid loop");
+            addDependencies(dependencies, scope[0].dependencies.slice(1), placeHolder, replaceScope, scopeID);
+            setTimeout(function () { manageLoop(controller, dependencies, treeID); }, 0);
+            return placeHolder;
+        },
+        "let": function () {
+
+        },
+        "pass": function (dom, controller, scope, dependencies, scopeID, replaceScope) {
+            var attribute = dom.getAttributeNode("ez-pass");
+
+            trees[++idCounter] = {
+                pass: scope,
+                controller: controller
+            };
+            Mutation.setTree(attribute, idCounter);
+
+            var scopes = scope.reduce(function (result, param) {
+                param.dependencies.forEach(function (dependency) {
+                    result[dependency] = 0;
+                });
+                return result;
+            }, {});
+            addDependencies(dependencies, Object.keys(scopes), attribute, replaceScope, scopeID);
+        }
+    };
+
     var tempDom = document.createElement("div");
     var gcTimer = { interval: 3000, timeout: 25 };
 
@@ -148,10 +222,11 @@ ezDefine("View", function (exports) {
             container.dispatchEvent(customEvent);
         });
         if (typeof newController.construct === "function") {
-            if (container.hasAttribute("ez-pass")) {
+            var attributeNode = container.getAttributeNode("ez-pass");
+            if (attributeNode instanceof Attr) {
                 var scope = {};
                 var parentController = {};
-                if ("treeID" in container) {
+                if ("treeID" in attributeNode) {
                     var parent = container;
                     while (parent && (parent === container || !hasValidTag(parent))) {
                         if ("scopeID" in parent) {
@@ -162,7 +237,7 @@ ezDefine("View", function (exports) {
                         }
                         parent = parent.parentNode;
                     }
-                    var tagTree = trees[container.treeID], paramList = tagTree.pass;
+                    var tagTree = trees[attributeNode.treeID], paramList = tagTree.pass;
                     parentController = tagTree.controller;
                 } else {
                     paramList = Parser.parseExpression(container.getAttribute("ez-pass"));
@@ -191,8 +266,8 @@ ezDefine("View", function (exports) {
                 if (type === "get") return;
                 var fullPath = (path || "") + (property && path ? "." : "") + (property || "");
                 if (path in dependencies) dependencies[path].forEach(evaluateLoopNode);
-                if (fullPath in dependencies) dependencies[fullPath].forEach(function (node) { evaluateNode(fullPath, node); });
-                if ("null" in dependencies) dependencies["null"].forEach(function (node) { evaluateNode("null", node); });
+                if (fullPath in dependencies) dependencies[fullPath].forEach(evaluateNode);
+                if ("null" in dependencies) dependencies["null"].forEach(evaluateNode);
             });
             (domList instanceof Array ? domList : [domList]).forEach(function (dom) {
                 container.appendChild(dom);
@@ -217,43 +292,44 @@ ezDefine("View", function (exports) {
             }
         }
 
-        function evaluateNode(path, node) {
+        function evaluateNode(node) {
             if (!node) return;
             var tree = trees[node.treeID];
             var placeHolder = "placeholderID" in node ? comments[node.placeholderID] : null;
             var scope = "scopeID" in node ? scopes[node.scopeID] : null;
-            if (node instanceof HTMLElement) {
-                if (hasValidTag(node)) {
-                    var dependencyList = tree && tree.pass && tree.pass[0] && tree.pass[0].dependencies || [];
-                    if (dependencyList.indexOf(path) !== -1) {
-                        var oldParent = node.parentElement, ref = node.nextElementSibling;
-                        removeView(node);
-                        node.innerHTML = "";
-                        createView(node, views[node.tagName].tree, views[node.tagName].controller);
-                        if (oldParent) {
-                            if (ref) oldParent.insertBefore(node, ref);
-                            else oldParent.appendChild(node);
-                        }
+            if (node instanceof Attr) {
+                if (node.name === "ez-pass") {
+                    if (!node.ownerElement) return;
+                    var dom = node.ownerElement, oldParent = dom.parentElement, ref = dom.nextElementSibling;
+                    var commentAttribute = dom.getAttributeNode("ez-if");
+                    if (commentAttribute && "placeholderID" in commentAttribute) comments[commentAttribute.placeholderID].cancel();
+                    removeView(dom);
+                    dom.innerHTML = "";
+                    createView(dom, views[dom.tagName].tree, views[dom.tagName].controller);
+                    if (oldParent) {
+                        if (ref) oldParent.insertBefore(dom, ref);
+                        else oldParent.appendChild(dom);
                     }
-                }
-                if (placeHolder) {
+                } else if (placeHolder) {
+                    var comment = placeHolder.comment; dom = node.ownerElement;
+                    if (!dom) return;
                     if (Expressions.evaluateValue(newController, placeHolder.if[0], scope)) {
-                        if (placeHolder.comment.parentNode) {
-                            placeHolder.comment.parentNode.insertBefore(node, placeHolder.comment);
-                            placeHolder.comment.parentNode.removeChild(placeHolder.comment);
-                            placeHolder.show();
+                        if (comment.parentNode) {
+                            comment.parentNode.insertBefore(dom, comment);
+                            comment.parentNode.removeChild(comment);
                         }
+                        placeHolder.show();
                     } else {
-                        if (node.parentNode) {
-                            node.parentNode.insertBefore(placeHolder.comment, node);
-                            node.parentNode.removeChild(node);
+                        if (dom.parentNode) {
+                            dom.parentNode.insertBefore(comment, dom);
+                            dom.parentNode.removeChild(dom);
                         }
                     }
+                } else {
+                    var attributeValue = Expressions.evaluateValue(newController, tree, scope);
+                    if (tree.parent && tree.parent.attributes && node.name in tree.parent.attributes) var initialValue = tree.parent.attributes[node.name];
+                    HTML.setValue(node, initialValue ? (initialValue + attributeValue) : attributeValue);
                 }
-            } else if (node instanceof Attr) {
-                var attributeValue = Expressions.evaluateValue(newController, tree, scope);
-                if (tree.parent && tree.parent.attributes && node.name in tree.parent.attributes) var initialValue = tree.parent.attributes[node.name];
-                HTML.setValue(node, initialValue ? (initialValue + attributeValue) : attributeValue);
             } else if (node instanceof Text) {
                 if ("type" in tree) {
                     if (node.parentNode instanceof HTMLElement) {
@@ -290,98 +366,62 @@ ezDefine("View", function (exports) {
                 /** @type {JSDoc.HTMLScope} */
                 var scope = tree;
                 var dom = document.createElement(scope.name);
-                if (scope.ezAttributes.if) {
-                    if (self instanceof HTMLElement) dom = self;
-                    else {
-                        addDependencies(dependencies, scope.ezAttributes.if[0].dependencies, dom, replaceScope, scopeID);
-                        var comment = document.createComment("");
-                        comments[++idCounter] = {
-                            comment: comment,
-                            dom: dom,
-                            if: scope.ezAttributes.if,
-                            show: function () {
-                                createDom.call(dom, controller, scope, dependencies, scopeID, replaceScope);
-                                this.show = function () { };
-                            }
-                        };
-                        Mutation.setPlaceholder(dom, idCounter);
-                        Mutation.setPlaceholder(comment, idCounter);
-                        if (!Expressions.evaluateValue(controller, scope.ezAttributes.if[0], scopes[scopeID])) return comment;
-                        else comments[idCounter].show = function () { };
-                    }
-                }
-                if (self !== scope && scope.ezAttributes.loop) {
-                    var placeHolder = document.createTextNode("");
-                    var treeID = ++idCounter;
-                    trees[treeID] = {
-                        loop: scope.ezAttributes.loop,
-                        placeHolder: placeHolder,
-                        parentScope: scopes[scopeID],
-                        replaceScope: replaceScope,
-                        children: {},
-                        scope: scope
-                    };
-                    Mutation.setTree(placeHolder, treeID);
-                    if (scope.ezAttributes.loop[0].content[0].left.type !== "Property") throw Error("Invalid loop");
-                    addDependencies(dependencies, scope.ezAttributes.loop[0].dependencies.slice(1), placeHolder, replaceScope, scopeID);
-                    setTimeout(manageLoop.bind(null, controller, dependencies, treeID), 0);
-                    return placeHolder;
-                }
-                addMutationListener(dom);
-                for (var key in scope.attributes) dom.setAttribute(key, scope.attributes[key]);
-                for (key in scope.ezAttributes) {
-                    if (Util.startsWith(key, 0, "on-")) {
-                        (function (expressionList) {
-                            dom.addEventListener(key.substring(3), function (event) {
-                                expressionList.forEach(function (callExpression) {
-                                    callExpression = callExpression.content[0];
-                                    ({
-                                        "Property": function () {
-                                            var callBack = Expressions.evaluateValue(controller, callExpression, scopes[scopeID]);
-                                            return callBack.call(controller, event);
-                                        },
-                                        "Parameter": function () {
-                                            this.Property();
-                                        },
-                                        "Call": function () {
-                                            var newScope = Object.create(scopeID in scopes ? scopes[scopeID] : null);
-                                            newScope.$ = event;
-                                            newScope.this = dom;
-                                            return Expressions.evaluateValue(controller, callExpression, newScope);
-                                        },
-                                        "Expression": function () {
-                                            // TODO calculated function
-                                        }
-                                    }[callExpression.type])();
-                                });
+                var functions = Object.keys(specialClasses).map(function (key) {
+                    if (key in scope.ezAttributes) return function () {
+                        var attrScope = scope.ezAttributes[key];
+                        if (typeof attrScope === "string") dom.setAttribute("ez-" + key, attrScope);
+                        else dom.setAttribute("ez-" + key, attrScope.map(function (item) { return item.text; }).join(","));
+                        var result = specialClasses[key](dom, controller, scope.ezAttributes[key], dependencies, scopeID, replaceScope, self);
+                        if (result) {
+                            if (result instanceof Node) return result;
+                            result.promise.then(function () {
+                                innerCreateDom();
+                            }).catch(function () {
+                                removeCascade(dependencies, dom);
                             });
-                            dom.setAttribute("ez-" + key, expressionList.map(function (e) { return e.text; }).join());
-                        })(scope.ezAttributes[key]);
-                    } else {
-                        if (specialClasses.includes(key)) {
-                            if (typeof scope.ezAttributes[key] === "string") {
-                                dom.setAttribute("ez-" + key, scope.ezAttributes[key]);
-                            } else {
-                                dom.setAttribute("ez-" + key, scope.ezAttributes[key].map(function (item) { return item.text; }).join(","));
-                                ({
-                                    "pass": function () {
-                                        trees[++idCounter] = {
-                                            pass: scope.ezAttributes[key],
-                                            controller: controller
-                                        };
-                                        Mutation.setTree(dom, idCounter);
+                            return result.node;
+                        } else {
+                            if (functions.length) return functions.shift()();
+                            else return innerCreateDom();
+                        }
+                    };
+                }).filter(Boolean);
+                if (functions.length) return functions.shift()();
+                else return innerCreateDom();
 
-                                        var scopes = scope.ezAttributes[key].reduce(function (result, param) {
-                                            param.dependencies.forEach(function (dependency) {
-                                                result[dependency] = 0;
-                                            });
-                                            return result;
-                                        }, {});
-                                        addDependencies(dependencies, Object.keys(scopes), dom, replaceScope, scopeID);
-                                    }
-                                }[key] || function () { })();
-                            }
-                        } else if (scope.ezAttributes[key][0].text) {
+                function innerCreateDom() {
+                    addMutationListener(dom);
+
+                    for (var key in scope.attributes) dom.setAttribute(key, scope.attributes[key]);
+                    for (key in scope.ezAttributes) {
+                        if (Util.startsWith(key, 0, "on-")) {
+                            (function (expressionList) {
+                                dom.addEventListener(key.substring(3), function (event) {
+                                    expressionList.forEach(function (callExpression) {
+                                        callExpression = callExpression.content[0];
+                                        ({
+                                            "Property": function () {
+                                                var callBack = Expressions.evaluateValue(controller, callExpression, scopes[scopeID]);
+                                                return callBack.call(controller, event);
+                                            },
+                                            "Parameter": function () {
+                                                this.Property();
+                                            },
+                                            "Call": function () {
+                                                var newScope = Object.create(scopeID in scopes ? scopes[scopeID] : null);
+                                                newScope.$ = event;
+                                                newScope.this = dom;
+                                                return Expressions.evaluateValue(controller, callExpression, newScope);
+                                            },
+                                            "Expression": function () {
+                                                // TODO calculated function
+                                            }
+                                        }[callExpression.type])();
+                                    });
+                                });
+                                dom.setAttribute("ez-" + key, expressionList.map(function (e) { return e.text; }).join());
+                            })(scope.ezAttributes[key]);
+                        } else if (!(key in specialClasses) && scope.ezAttributes[key][0].text) {
                             dom.setAttribute("ez-" + key, scope.ezAttributes[key][0].text);
                             var attribute = document.createAttribute(key);
                             trees[++idCounter] = scope.ezAttributes[key][0];
@@ -408,14 +448,14 @@ ezDefine("View", function (exports) {
                             addDependencies(dependencies, scope.ezAttributes[key][0].dependencies, attribute, replaceScope, scopeID);
                         }
                     }
+                    if (scope.text) {
+                        var newDoms = createDom(controller, scope.text, dependencies, scopeID, replaceScope);
+                        (newDoms instanceof Array ? newDoms : [newDoms]).forEach(function (newDom) {
+                            dom.appendChild(newDom);
+                        });
+                    }
+                    return dom;
                 }
-                if (scope.text) {
-                    var newDoms = createDom(controller, scope.text, dependencies, scopeID, replaceScope);
-                    (newDoms instanceof Array ? newDoms : [newDoms]).forEach(function (newDom) {
-                        dom.appendChild(newDom);
-                    });
-                }
-                return dom;
             },
             "Expression": function () {
                 var text = document.createTextNode("");
@@ -452,7 +492,7 @@ ezDefine("View", function (exports) {
             if (path !== "null" && scope && Object.keys(scope).length) {
                 path = path.replace(/^([^.]+)(\.|$)/g, function (fullText, key, dot) {
                     return addScopeID = true, key in scope ? scope[key] + dot : fullText;
-                }).replace(/\[([^\]])\]/g, function (fullText, key) {
+                }).replace(/\[([^\]]+)\]/g, function (fullText, key) {
                     return addScopeID = true, key in scope ? "." + scope[key] : fullText;
                 });
             }
