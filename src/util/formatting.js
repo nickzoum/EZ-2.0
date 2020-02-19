@@ -54,28 +54,28 @@ ezDefine("Formatting", function (exports) {
                 var exponent = Math.floor(Math.log10(number)) - 1;
                 number /= Math.pow(10, exponent - precision);
                 number = Math.round(number) / Math.pow(10, precision);
-                var decimal = numberGetInteger((number % 1) * Math.pow(10, precision), "");
+                var decimal = numberRoundInteger((number % 1) * Math.pow(10, precision), "");
                 if (decimal === "0") decimal = "";
                 if (decimal.length > precision) { decimal = ""; number += 1; }
                 return numberGetInteger(number, "") + (precision ? decimalPoint.desired : "") + decimal + format[0] + "+" + numberGetInteger(exponent, "");
             },
             "F": function () {
                 if (precision === undefined) precision = 2;
-                var decimal = numberGetInteger((number % 1) * Math.pow(10, precision), "");
+                var decimal = numberRoundInteger((number % 1) * Math.pow(10, precision), "");
                 if (decimal === "0") decimal = "";
                 if (decimal.length > precision) { decimal = ""; number += 1; }
                 return numberGetInteger(number, "") + (precision ? decimalPoint.desired : "") + decimal + "0".repeat(Math.max(0, precision - decimal.length));
             },
             "G": function () {
                 if (precision === undefined) precision = 15;
-                var decimal = numberGetInteger((number % 1) * Math.pow(10, precision), "");
+                var decimal = numberRoundInteger((number % 1) * Math.pow(10, precision), "");
                 if (decimal === "0") decimal = "";
                 if (decimal.length > precision) { decimal = ""; number += 1; }
                 return numberGetInteger(number, "") + (decimal ? decimalPoint.desired : "") + decimal;
             },
             "N": function () {
                 if (precision === undefined) precision = 15;
-                var decimal = numberGetInteger((number % 1) * Math.pow(10, precision), "") || "";
+                var decimal = numberRoundInteger((number % 1) * Math.pow(10, precision), "") || "";
                 if (decimal === "0") decimal = "";
                 if (decimal.length > precision) { decimal = ""; number += 1; }
                 return numberGetInteger(number, thousandSeparator.desired) + (decimal ? decimalPoint.desired : "") + decimal;
@@ -83,7 +83,7 @@ ezDefine("Formatting", function (exports) {
             "P": function () {
                 if (precision === undefined) precision = 2;
                 number *= 100;
-                var decimal = numberGetInteger((number % 1) * Math.pow(10, precision), "");
+                var decimal = numberRoundInteger((number % 1) * Math.pow(10, precision), "");
                 if (decimal === "0") decimal = "";
                 if (decimal.length > precision) { decimal = ""; number += 1; }
                 return numberGetInteger(number, "") + (precision ? decimalPoint.desired : "") + decimal + "0".repeat(Math.max(0, precision - decimal.length)) + percentageSign;
@@ -98,6 +98,16 @@ ezDefine("Formatting", function (exports) {
      * @returns {string}
      */
     function numberGetInteger(number, replaceWith) {
+        return Math.floor(number).toLocaleString("en-US").replace(thousandSeparator.current, replaceWith);
+    }
+
+    /**
+     * 
+     * @param {number} number 
+     * @param {string} replaceWith 
+     * @returns {string}
+     */
+    function numberRoundInteger(number, replaceWith) {
         return Math.floor(number).toLocaleString("en-US").replace(thousandSeparator.current, replaceWith);
     }
 
