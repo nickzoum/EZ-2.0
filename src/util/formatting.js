@@ -1,3 +1,5 @@
+if (undefined) var { Enumerables } = require("../ez");
+
 ezDefine("Formatting", function (exports) {
     "use strict";
 
@@ -125,6 +127,26 @@ ezDefine("Formatting", function (exports) {
                 console.warn("The desired characters for the decimal point and the thousand separator are identical");
             }
         }, 0);
+    }
+
+    /**
+     * Changes the text of the months
+     * @returns {void} 
+     */
+    function setMonthNames() {
+        Enumerables.flattenArray(arguments).forEach(function (name, index) {
+            if (index in months) months[index] = String(name);
+        });
+    }
+
+    /**
+     * Changes the text of the week days
+     * @returns {void} 
+     */
+    function setWeekDayNames() {
+        Enumerables.flattenArray(arguments).forEach(function (name, index) {
+            if (index in weekDays) weekDays[index] = String(name);
+        });
     }
 
     /**
@@ -265,7 +287,9 @@ ezDefine("Formatting", function (exports) {
     exports.setPercentageSign = setPercentageSign;
     exports.setCurrencySign = setCurrencySign;
     exports.setDecimalPoint = setDecimalPoint;
+    exports.setWeekDayNames = setWeekDayNames;
     exports.numberToString = numberToString;
+    exports.setMonthNames = setMonthNames;
     exports.dateToString = dateToString;
     exports.format = format;
     return exports;

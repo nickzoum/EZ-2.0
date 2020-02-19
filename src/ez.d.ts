@@ -445,6 +445,21 @@ export namespace Expressions {
 
 export namespace Formatting {
 
+
+    /**
+     * Changes the text of the months
+     * @param {Array<string>} names new names
+     * @returns {void} 
+     */
+    function setMonthNames(...names: Array<string>): void;
+
+    /**
+     * Changes the text of the week days
+     * @param {Array<string>} names new names
+     * @returns {void} 
+     */
+    function setWeekDayNames(...names: Array<string>): void;
+
     /**
      * Changes the thousand separator
      * @param {"." | ","} newSeparator

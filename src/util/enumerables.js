@@ -23,7 +23,7 @@ ezDefine("Enumerables", function (exports) {
         var result = [];
         if (isNaN(start) || start < 0) start = 0;
         if (isNaN(end) || end >= arrayLike.length) end = arrayLike.length - 1;
-        for (; start < end; start++) result.push(arrayLike[start]);
+        for (; start <= end; start++) result.push(arrayLike[start]);
         return result;
     }
 
