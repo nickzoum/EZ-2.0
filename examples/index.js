@@ -1,29 +1,25 @@
 if (undefined) var { View } = require("../src/ez");
 
 
-View.registerView("test", "<span ez-loop=\"key in list\">${list[key].foo, \"json\"}</span><span ez-if=\"list.a.foo.0\">123</span><other ez-pass=\"x\"/>", {
+View.registerView("test", "<other ez-loop=\"key in list\" ez-pass=\"list[key].data\" />", {
     list: {
-        "a": {
-            foo: []
+        a: {
+            data: [1, 2, 3]
         },
         b: {
-            foo: []
+            data: [4, 5, 6]
         }
     },
-    x: "FOOO",
     onLoad: function () {
         var self = this;
 
         setTimeout(function () {
-            self.list.a.foo.push({ h: 3 });
-            self.x = "OI";
         }, 2000);
     }
 });
 
-View.registerView("other", "<span>${text}</span>", {
-    text: "",
+View.registerView("other", "", {
     construct: function (text) {
-        this.text = text;
+        console.log(text);
     }
 });

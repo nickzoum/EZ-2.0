@@ -19,35 +19,51 @@ ezDefine("View", function (exports) {
     /** @type {{[className: string]: (dom: HTMLElement, controller:JSDoc.ViewController, scope: Array<JSDoc.EZExpression>, dependencies:{[index: string]: Array<Attr>}, scopeID:string, replaceScope:{[index: string]: string}) => {promise: Promise, node: node}}} */
     var specialClasses = {
         "if": function (dom, controller, scope, dependencies, scopeID, replaceScope) {
+            var resolveCB, rejectCB;
             var attribute = dom.getAttributeNode("ez-if");
             addDependencies(dependencies, scope[0].dependencies, attribute, replaceScope, scopeID);
             var comment = document.createComment(""), commentID = ++idCounter;
             comments[commentID] = {
                 comment: comment,
                 if: scope,
-                show: function () { called = true; },
-                cancel: function () { cancelled = false; }
+                show: function () { if (typeof resolveCB === "function") resolveCB(); },
+                cancel: function () { if (typeof rejectCB === "function") rejectCB(); }
             };
             Mutation.setPlaceholder(attribute, commentID);
             if (!Expressions.evaluateValue(controller, scope[0], scopes[scopeID])) {
-                var called = false, cancelled = false, promise = new Promise(function (resolve, reject) {
-                    if (called || cancelled) onResult();
-                    if (called) resolve();
-                    else if (cancelled) reject();
-                    else {
-                        comments[commentID].show = function () { called = true; onResult(); resolve(); };
-                        comments[commentID].cancel = function () { onResult(); reject(); };
+                var thenCB = [], catchCB = [], promise = {
+                    then: function (cb) { if (thenCB) thenCB.push(cb); else cb(); return promise; },
+                    catch: function (cb) { if (catchCB) catchCB.push(cb); else cb(); return promise; },
+                    finally: function (cb) {
+                        if (catchCB) {
+                            thenCB.push(function () { cb(); });
+                            catchCB.push(function () { cb(); });
+                        } else cb();
+                        return promise;
                     }
+                };
 
-                    function onResult() {
-                        comments[commentID].show = function () { };
-                        comments[commentID].cancel = function () { };
-                    }
-                });
+                resolveCB = function () {
+                    onResult();
+                    thenCB.forEach(function (cb) { cb(); });
+                    thenCB = null;
+                };
+
+                rejectCB = function () {
+                    onResult();
+                    catchCB.forEach(function (cb) { cb(); });
+                    catchCB = null;
+                };
+
                 return {
                     promise: promise,
                     node: comment
                 };
+            } else onResult();
+
+            function onResult() {
+                comments[commentID].show = function () { };
+                comments[commentID].cancel = function () { };
             }
         },
         "loop": function (dom, controller, scope, dependencies, scopeID, replaceScope, self) {
@@ -227,7 +243,7 @@ ezDefine("View", function (exports) {
                 var scope = {};
                 var parentController = {};
                 if ("treeID" in attributeNode) {
-                    var parent = container;
+                    var parent = attributeNode;
                     while (parent && (parent === container || !hasValidTag(parent))) {
                         if ("scopeID" in parent) {
                             var domScope = scopes[parent.scopeID];
@@ -235,7 +251,7 @@ ezDefine("View", function (exports) {
                                 if (!(property in scope)) scope[property] = domScope[property];
                             }
                         }
-                        parent = parent.parentNode;
+                        parent = parent instanceof Attr ? parent.ownerElement : parent.parentNode;
                     }
                     var tagTree = trees[attributeNode.treeID], paramList = tagTree.pass;
                     parentController = tagTree.controller;
@@ -314,11 +330,11 @@ ezDefine("View", function (exports) {
                     var comment = placeHolder.comment; dom = node.ownerElement;
                     if (!dom) return;
                     if (Expressions.evaluateValue(newController, placeHolder.if[0], scope)) {
+                        placeHolder.show();
                         if (comment.parentNode) {
                             comment.parentNode.insertBefore(dom, comment);
                             comment.parentNode.removeChild(comment);
                         }
-                        placeHolder.show();
                     } else {
                         if (dom.parentNode) {
                             dom.parentNode.insertBefore(comment, dom);
@@ -375,7 +391,8 @@ ezDefine("View", function (exports) {
                         if (result) {
                             if (result instanceof Node) return result;
                             result.promise.then(function () {
-                                innerCreateDom();
+                                if (functions.length) return functions.shift()();
+                                else return innerCreateDom();
                             }).catch(function () {
                                 removeCascade(dependencies, dom);
                             });
