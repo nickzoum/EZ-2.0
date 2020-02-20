@@ -140,6 +140,8 @@ ezDefine("Parser", function (exports) {
                     "=": function () {
                         ({
                             "Scope": function () {
+                                var keys = Object.keys(scope.attributes), currentAttribute = keys.length && scope.attributes[keys.pop()];
+                                if (currentAttribute instanceof Array) return currentAttribute.push("=");
                                 if (!attributeName.length) throw SyntaxError("Empty attribute name at index " + index + " `" + pageText.substring(index - 15, index) + "->" + pageText[index] + "<-" + pageText.substring(index + 1, 15) + "`");
                                 var newAttribute = attributeName.join("").replace(/^ez-/, "");
                                 if (newAttribute.length !== attributeName.length) {
@@ -151,7 +153,8 @@ ezDefine("Parser", function (exports) {
                                     newScopes.forEach(function (newScope) { newScope.parent = scope; });
                                 } else scope.attributes[newAttribute] = undefined; /* TODO FILL */
                                 attributeName = [];
-                            }
+                            },
+                            "HTMLContent": onDefault
                         }[scope.type] || syntax)();
                     },
                     "/": function () {
