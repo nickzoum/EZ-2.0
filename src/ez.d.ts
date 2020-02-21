@@ -329,17 +329,21 @@ export namespace Parser {
     /**
      * Converts html to an AST
      * @param {string} text source of html
+     * @param {string} [fileName='anonymous'] name of file
      * @returns {HTMLContent} AST form of html
      */
-    function parsePage(text: string): HTMLContent;
+    function parsePage(text: string, fileName?: string): HTMLContent;
 
     /**
      * Converts an expression (ez-attribute or ${}) to an AST
      * @param {string} pageText html text
-     * @param {number} [index=0] index that the expression starts at
+     * @param {number} [index=0] character index that the expression starts at
+     * @param {number} [lineNumber=1] line index that the expression starts at
+     * @param {number} [columnNumber=1] column index that the expression starts at
+     * @param {string} [fileName='anonymous'] name of file the expression originated from
      * @returns {Array<EZAttribute>} AST form of the expression
      */
-    function parseExpression(pageText: string, index?: number): Array<EZAttribute>;
+    function parseExpression(pageText: string, index?: number, lineNumber?: number, columnNumber?: number, fileName?: string): Array<EZAttribute>;
 }
 
 export namespace View {

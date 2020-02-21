@@ -168,7 +168,7 @@ ezDefine("View", function (exports) {
                 "Cache-Control": "public, max-age: " + (60 * 60 * 24 * 3)
             }
         }).then(function (data) {
-            registerTag(tagName, data, controller);
+            registerTag(tagName, data, controller, url);
         }).catch(function (err) {
             console.error("Could not get resource for '" + tagName + "' view (url: '" + url + "')");
             console.error(err);
@@ -185,15 +185,16 @@ ezDefine("View", function (exports) {
         tagName = String(tagName).toUpperCase();
         if (tagName in views) throw Error("Tag has already been registered");
         if (!hasValidTag(tagName)) throw Error("Supplied tagname cannot be a valid html tag");
-        registerTag(tagName, dom, controller);
+        registerTag(tagName, dom, controller, tagName + " view text");
     }
 
     /**
       * @param {string} tagName
       * @param {string | HTMLElement | Array<Node> | HTMLCollection | NodeList | NodeListOf<Node>} dom 
+      * @param {string} fileName
       * @param {JSDoc.ViewController} controller
       */
-    function registerTag(tagName, dom, controller) {
+    function registerTag(tagName, dom, controller, fileName) {
         if (typeof dom === "string") var html = dom;
         else if (typeof dom === "object") {
             if (dom instanceof Array) {
@@ -208,7 +209,7 @@ ezDefine("View", function (exports) {
                 }, "");
             } else if (dom instanceof HTMLElement) html = dom.outerHTML;
         } else throw Error("Parameter is not a string or an element");
-        var tree = Parser.parsePage(html);
+        var tree = Parser.parsePage(html, fileName);
         views[tagName] = { tree: tree, controller: controller };
         document.querySelectorAll(tagName).forEach(function (dom) {
             createView(dom, views[tagName].tree, views[tagName].controller);
@@ -256,7 +257,7 @@ ezDefine("View", function (exports) {
                     var tagTree = trees[attributeNode.treeID], paramList = tagTree.pass;
                     parentController = tagTree.controller;
                 } else {
-                    paramList = Parser.parseExpression(container.getAttribute("ez-pass"));
+                    paramList = Parser.parseExpression(container.getAttribute("ez-pass"), 0, 1, 1, "Expression: '" + container.getAttribute("ez-pass") + "'");
                 }
                 paramList = paramList instanceof Array ? paramList : [paramList];
                 paramList = paramList.map(function (param) { return Expressions.evaluateValue(parentController, param, scope); });

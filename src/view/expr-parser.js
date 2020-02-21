@@ -55,14 +55,22 @@ ezDefine("Parser", function (exports) {
     return exports;
 
     /**
-     * 
-     * @param {JSDoc.HTMLContent | JSDoc.HTMLScope} scope
-     * @param {string} pageText 
-     * @param {number} index
-     * @returns {number} 
+     * Converts an expression (ez-attribute or ${}) to an AST
+     * @param {string} pageText html text
+     * @param {number} [index=0] character index that the expression starts at
+     * @param {number} [lineNumber=1] line index that the expression starts at
+     * @param {number} [columnNumber=1] column index that the expression starts at
+     * @param {string} [fileName='anonymous'] name of file the expression originated from
+     * @returns {JSDoc.EZAttribute} 
      */
-    function parseExpression(pageText, index) {
-        if (arguments.length === 1) index = 0;
+    function parseExpression(pageText, index, lineNumber, columnNumber, fileName) {
+        var _ = { index: 0 }; Object.defineProperty(_, "index", {
+            get: function () { return index; },
+            set: function (newValue) { columnNumber += newValue - index; index = newValue; }
+        }); index = Math.max(index | 0, 0);
+        lineNumber = Math.min(lineNumber | 0, 1);
+        columnNumber = Math.min(columnNumber | 0, 1);
+        fileName = fileName ? String(fileName) : "anonymous";
         var startCharacter = pageText[index - 1];
         if (startCharacter === "{") startCharacter = "}";
         var scope = {
@@ -77,10 +85,10 @@ ezDefine("Parser", function (exports) {
         while (index < pageText.length && (char !== startCharacter || scope.type === "TextLiteral")) {
             var actionMap = {
                 "\\": function () {
-                    index += 1;
+                    _.index += 1;
                     if (scope.type === "TextLiteral") onDefault();
                     else if (["\"", "'", "`"].includes(char)) this[char]();
-                    else throw SyntaxError("Unexpected character '\\' at index " + --index);
+                    else throw createError("Unexpected character '\\'");
                 },
                 "\"": function () {
                     onQuote("\"");
@@ -143,7 +151,7 @@ ezDefine("Parser", function (exports) {
                 ")": function () {
                     var innerMap = {
                         "Expression": function () {
-                            if (!scope.parent || scope.parent.type === "Property") throw Error("Unexpected closing parenthesis ')'");
+                            if (!scope.parent || scope.parent.type === "Property") throw createError("Unexpected closing parenthesis ')'");
                             sortExpression();
                             goUp();
                             if (scope.type === "Call") {
@@ -193,7 +201,7 @@ ezDefine("Parser", function (exports) {
                 "=": function () {
                     if (Util.startsWith(pageText, index, "===")) onArithmetic("===");
                     else if (Util.startsWith(pageText, index, "==")) onArithmetic("==");
-                    else if (scope.type !== "TextLiteral") throw SyntaxError("Single '=' character was found at index " + index);
+                    else if (scope.type !== "TextLiteral") throw createError("Single '=' character was found");
                 },
                 ">": function () {
                     if (Util.startsWith(pageText, index, ">=")) onArithmetic(">=");
@@ -218,7 +226,7 @@ ezDefine("Parser", function (exports) {
                         "Parameter": function () {
                             if (Util.startsWith(pageText, index, "?.")) {
                                 scope.content += "?.";
-                                index += 1;
+                                _.index += 1;
                             } else {
                                 goUp();
                                 self["?"]();
@@ -289,7 +297,7 @@ ezDefine("Parser", function (exports) {
                                 start: index,
                                 content: scope
                             };
-                            if (scope.parent.content) throw Error("Invalid conversion");
+                            if (scope.parent.content) throw createError("Invalid conversion");
                             scope.parent.content = scope;
                             this.Parameter();
                         },
@@ -320,7 +328,7 @@ ezDefine("Parser", function (exports) {
                         "TextLiteral": onDefault
                     };
                     (actionMap[scope.type] || syntax).call(actionMap);
-                    index += fullText.length - 1;
+                    _.index += fullText.length - 1;
                 },
                 "[": function () {
                     if (scope.type === "TextLiteral") return onDefault();
@@ -336,7 +344,7 @@ ezDefine("Parser", function (exports) {
                 "]": function () {
                     if (scope.type === "TextLiteral") return onDefault();
                     while (scope && scope.type !== "Expression") goUp();
-                    if (!scope || scope.type !== "Expression") throw Error("Unexpected closing parenthesis ')'");
+                    if (!scope || scope.type !== "Expression") throw createError("Unexpected closing parenthesis ')'");
                     sortExpression();
                     goUp(16);
                     goUp(16);
@@ -346,7 +354,7 @@ ezDefine("Parser", function (exports) {
                     while (scope.parent && scope.type !== "Call") {
                         if (scope.type === "Expression") {
                             if (scope.parent.type === "Call") goUp();
-                            else throw Error("Unclosed brackets");
+                            else throw createError("Unclosed brackets");
                         } else goUp();
                     }
                     ({
@@ -422,23 +430,25 @@ ezDefine("Parser", function (exports) {
                     this[" "]();
                 },
                 "\r": function () {
-                    index = pageText.length;
+                    this[" "]();
                 },
                 "\n": function () {
-                    index = pageText.length;
+                    columnNumber = 0;
+                    lineNumber += 1;
+                    this[" "]();
                 }
             };
             (actionMap[char] || onDefault).call(actionMap);
             scopeList[scopeList.length - 1].text += char;
-            index += 1;
+            _.index += 1;
             char = pageText[index];
         }
         if (scope.parent) {
-            if (scope.type === "Expression") throw Error("Unclosed brackets");
+            if (scope.type === "Expression") throw createError("Unclosed brackets");
             else goUp();
         }
         sortExpression();
-        if (char !== startCharacter) throw SyntaxError("Unclosed ez-attribute at index " + index);
+        if (char !== startCharacter) throw createError("Unclosed ez-attribute");
         scope.dependencies = Object.keys(dependencies);
         if ("null" in dependencies && scope.dependencies.length > 1) scope.dependencies = ["null"];
         scope.end = index;
@@ -454,7 +464,7 @@ ezDefine("Parser", function (exports) {
                         content: "",
                         quote: quote
                     };
-                    if (scope.parent.content) throw Error("Invalid conversion");
+                    if (scope.parent.content) throw createError("Invalid conversion");
                     scope.parent.content = scope;
                 },
                 "TextLiteral": function () {
@@ -497,7 +507,7 @@ ezDefine("Parser", function (exports) {
                         start: index,
                         end: index + sign.length
                     });
-                    index += sign.length - 1;
+                    _.index += sign.length - 1;
                     scopeList[scopeList.length - 1].text += sign;
                     char = "";
                 },
@@ -522,7 +532,7 @@ ezDefine("Parser", function (exports) {
                         start: index,
                         end: index + text.length
                     });
-                    index += text.length - 1;
+                    _.index += text.length - 1;
                     char = "";
                     scopeList[scopeList.length - 1].text += text;
                     return true;
@@ -549,9 +559,9 @@ ezDefine("Parser", function (exports) {
                         content: null
                     };
                     scope.operator.parent = scope;
-                    if (scope.parent.content) throw Error("Invalid conversion");
+                    if (scope.parent.content) throw createError("Invalid conversion");
                     scope.parent.content = scope;
-                    index += sign.length - 1;
+                    _.index += sign.length - 1;
                     scopeList[scopeList.length - 1].text += sign;
                     char = "";
                     return true;
@@ -573,12 +583,12 @@ ezDefine("Parser", function (exports) {
                         };
                         scope.operator.parent = scope;
                         scope.parent.content.push(scope);
-                        index += sign.length - 1;
+                        _.index += sign.length - 1;
                         scopeList[scopeList.length - 1].text += sign;
                         char = "";
                         return true;
                     } else {
-                        if (throwError) throw SyntaxError("Unexpected unary operator '" + sign + "' at index " + index);
+                        if (throwError) throw createError("Unexpected unary operator '" + sign + "'");
                         else return false;
                     }
                 }
@@ -610,11 +620,11 @@ ezDefine("Parser", function (exports) {
                         };
                     }
                     scope.start = index;
-                    if (scope.parent.content) throw Error("Invalid conversion");
+                    if (scope.parent.content) throw createError("Invalid conversion");
                     scope.parent.content = scope;
                 },
                 "Property": function () {
-                    if (pageText[index] === ".") throw SyntaxError("Property cannot contain the '.' character");
+                    if (pageText[index] === ".") throw createError("Property cannot contain the '.' character");
                     scope.content += pageText[index];
                 },
                 "Parameter": function () {
@@ -642,10 +652,8 @@ ezDefine("Parser", function (exports) {
         }
 
         function syntax() {
-            console.log(scope.type);
-            console.log(pageText[index]);
-            console.log(pageText[index] + pageText[index + 1] + pageText[index + 2]);
-            throw SyntaxError("Error at index " + index + " '" + pageText.substring(index - 5, index + 5) + "'");
+            throw createError("Unexpected Syntax ('" + pageText.substring(index - 5, index + 5) +
+                "'), type: '" + scope.type + "', character: '" + pageText[index] + "'");
         }
 
         function addDependencies() {
@@ -678,7 +686,7 @@ ezDefine("Parser", function (exports) {
 
         /** @param {number} [precedence] if larger than 16 will stop at conversions and parameters */
         function goUp(precedence) {
-            if (!scope.parent) throw SyntaxError("Unexpected expression closing character " + pageText[index]);
+            if (!scope.parent) throw createError("Unexpected expression closing character");
             addDependencies();
             scope.end = index;
             scope = scope.parent;
@@ -694,7 +702,7 @@ ezDefine("Parser", function (exports) {
                     var currentText = childScope.content || childScope.text;
                     var text = scope.text;
                     var message = hasOperation ? "there was no variable between the operators" : "there was no operator between the variables";
-                    throw SyntaxError("Invalid Sequence, " + message + " '" + previousText + "' and '" + currentText + "' in the expression '" + text + "'");
+                    throw createError("Invalid Sequence, " + message + " '" + previousText + "' and '" + currentText + "' in the expression '" + text + "'");
                 }
                 hasOperation = isOperator;
             });
@@ -738,6 +746,17 @@ ezDefine("Parser", function (exports) {
                     }
                 }
             }
+        }
+
+        /**
+         * Creates and returns a syntax error
+         * @param {string} message error message
+         * @returns {SyntaxError}
+         */
+        function createError(message) {
+            var error = new SyntaxError(message);
+            error.stack = "SyntaxError: " + message + "\n    at " + fileName + ":" + lineNumber + ":" + columnNumber;
+            return error;
         }
     }
 

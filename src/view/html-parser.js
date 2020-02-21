@@ -2,6 +2,7 @@ if (undefined) var Parser = require("../ez").Parser;
 if (undefined) var Util = require("../ez").Util;
 
 // TODO allow numeric attributes (keep active attribute instead of Object.keys().pop)
+// TODO fix line number and column number on new lines inside scripts and comments
 /** @typedef {import("../ez")}  JSDoc */
 ezDefine("Parser", function (exports) {
     "use strict";
@@ -11,20 +12,24 @@ ezDefine("Parser", function (exports) {
 
 
     /**
-     * 
-     * @param {string} pageText
-     * @returns {JSDoc.HTMLScope} 
+     * Converts html to an AST
+     * @param {string} text source of html
+     * @param {string} [fileName='anonymous'] name of file
+     * @returns {HTMLContent} AST form of html
      */
-    function parsePage(pageText) {
+    function parsePage(pageText, fileName) {
+        var attributeName = [], escape = false, index = 0, lineNumber = 1, columnNumber = 1, _ = { index: 0 };
+        Object.defineProperty(_, "index", {
+            get: function () { return index; },
+            set: function (newValue) { columnNumber += newValue - index; index = newValue; }
+        });
+        fileName = fileName ? String(fileName) : "anonymous";
         /** @type {JSDoc.HTMLScope | JSDoc.HTMLContent | JSDoc.EZAttribute | JSDoc.EZExpression} */
         var scope = {
             type: "HTMLContent",
             dependencies: [],
             content: []
         };
-        var attributeName = [];
-        var escape = false;
-        var index = 0;
         while (index < pageText.length) {
             if (escape) {
                 onDefault();
@@ -37,22 +42,22 @@ ezDefine("Parser", function (exports) {
                                 if (scope.singleTag && pageText[index + 1] === "/" && scope.closedTag) {
                                     scope.singleTag = false;
                                     scope.closedTag = false;
-                                    index += 1;
+                                    _.index += 1;
                                 } else {
-                                    throw SyntaxError("Undefined Error, Text case should had been run");
+                                    throw createError("Undefined Error, Text case should had been run");
                                 }
                             },
                             "HTMLContent": function () {
                                 if (Util.startsWith(pageText, index + 1, "!--")) {
-                                    index = getCommentEnd(pageText, index + 4);
+                                    try { _.index = getCommentEnd(pageText, index + 4); } catch (err) { throw createError(err.message); }
                                 } else if (pageText[index + 1] === "/") {
                                     scope.end = index;
                                     scope.content = scope.content.map(function (item) { return item instanceof Array ? item.join("") : item; });
                                     scope = scope.parent;
-                                    if (!scope) throw SyntaxError("Unmatched closing tag found at index + " + index);
+                                    if (!scope) throw createError("Unmatched closing tag found");
                                     scope.singleTag = false;
                                     scope.closedTag = false;
-                                    index += 1;
+                                    _.index += 1;
                                 } else {
                                     var newScope = {
                                         type: "Scope",
@@ -79,7 +84,7 @@ ezDefine("Parser", function (exports) {
                     ">": function () {
                         ({
                             "Scope": function () {
-                                if (scope.closedTag) throw SyntaxError("Unexpected character '>' at index " + index);
+                                if (scope.closedTag) throw createError("Unexpected character '>'");
                                 else if (scope.singleTag) {
                                     if (attributeName.length) {
                                         var newAttribute = attributeName.join("").replace(/^ez-/, "");
@@ -99,7 +104,7 @@ ezDefine("Parser", function (exports) {
                                     };
                                     scope = scope.text;
                                     if (scope.parent.name === "script" || scope.parent.name === "style") {
-                                        index = getScriptEnd(pageText, index + 1, scope.parent.name) - 1;
+                                        try { _.index = getScriptEnd(pageText, index + 1, scope.parent.name) - 1; } catch (err) { throw createError(err.message); }
                                         scope.content.push(pageText.substring(scope.start, index + 1));
                                     }
                                 } else {
@@ -129,6 +134,8 @@ ezDefine("Parser", function (exports) {
                         }[scope.type] || syntax)();
                     },
                     "\n": function () {
+                        lineNumber += 1;
+                        columnNumber = 0;
                         this[" "]();
                     },
                     "\r": function () {
@@ -142,14 +149,14 @@ ezDefine("Parser", function (exports) {
                             "Scope": function () {
                                 var keys = Object.keys(scope.attributes), currentAttribute = keys.length && scope.attributes[keys.pop()];
                                 if (currentAttribute instanceof Array) return currentAttribute.push("=");
-                                if (!attributeName.length) throw SyntaxError("Empty attribute name at index " + index + " `" + pageText.substring(index - 15, index) + "->" + pageText[index] + "<-" + pageText.substring(index + 1, 15) + "`");
+                                if (!attributeName.length) throw createError("Empty attribute name");
                                 var newAttribute = attributeName.join("").replace(/^ez-/, "");
                                 if (newAttribute.length !== attributeName.length) {
                                     var start = pageText[++index];
-                                    if (start !== "\"" && start !== "'") throw SyntaxError("Unexpected character '" + start + "', was expecting string \" or '");
-                                    var newScopes = Parser.parseExpression(pageText, index + 1);
+                                    if (start !== "\"" && start !== "'") throw createError("Unexpected character '" + start + "', was expecting string \" or '");
+                                    var newScopes = Parser.parseExpression(pageText, index + 1, lineNumber, columnNumber, fileName);
                                     scope.ezAttributes[newAttribute] = newScopes;
-                                    index = newScopes[newScopes.length - 1].end;
+                                    _.index = newScopes[newScopes.length - 1].end;
                                     newScopes.forEach(function (newScope) { newScope.parent = scope; });
                                 } else scope.attributes[newAttribute] = undefined; /* TODO FILL */
                                 attributeName = [];
@@ -166,15 +173,15 @@ ezDefine("Parser", function (exports) {
                                     if (scope.name instanceof Array) scope.name = scope.name.join("");
                                     if (attributeName.length) {
                                         var newAttribute = attributeName.join("").replace(/^ez-/, "");
-                                        if (newAttribute.length !== attributeName.length) throw SyntaxError("Ez attributes cannot be empty");
+                                        if (newAttribute.length !== attributeName.length) throw createError("Ez attributes cannot be empty");
                                         else scope.attributes[newAttribute] = null;
                                         attributeName = [];
                                     }
                                     scope.end = index + 2;
                                     scope = scope.parent;
-                                    index += 1;
+                                    _.index += 1;
                                 }
-                                else throw SyntaxError("Invalid character '/' at index " + index);
+                                else throw createError("Invalid character '/'");
                             }
                         }[scope.type] || syntax)();
                     },
@@ -182,13 +189,14 @@ ezDefine("Parser", function (exports) {
                         ({
                             "HTMLContent": function () {
                                 if (pageText[index + 1] === "{") {
-                                    var newScopes = Parser.parseExpression(pageText, index + 2);
+                                    index += 2;
+                                    var newScopes = Parser.parseExpression(pageText, index, lineNumber, columnNumber, fileName);
                                     ([
                                         function () {
-                                            index = newScopes[0].end;
+                                            _.index = newScopes[0].end;
                                         },
                                         function () {
-                                            index = newScopes[1].end;
+                                            _.index = newScopes[1].end;
                                             newScopes[0].format = newScopes[1];
                                             newScopes[1].parent = newScopes[0];
                                         }
@@ -202,14 +210,14 @@ ezDefine("Parser", function (exports) {
                     "\"": function () {
                         ({
                             "Scope": function () {
-                                if (attributeName.length) throw SyntaxError("Attribute name cannot include quotes, at index " + index);
+                                if (attributeName.length) throw createError("Attribute name cannot include quotes ");
                                 var attributeNames = Object.keys(scope.attributes);
-                                if (!attributeNames.length) throw SyntaxError("Invalid character '\"' at index " + index);
+                                if (!attributeNames.length) throw createError("Invalid character '\"'  ");
                                 var name = attributeNames.pop();
                                 if (scope.attributes[name] === undefined) {
                                     scope.attributes[name] = [pageText[index]];
                                 } else if (scope.attributes[name]) {
-                                    if (scope.attributes[name][0] !== pageText[index]) throw SyntaxError("Invalid closing character, at index " + index);
+                                    if (scope.attributes[name][0] !== pageText[index]) throw createError("Invalid closing character ");
                                     scope.attributes[name].shift();
                                     scope.attributes[name] = scope.attributes[name].join("");
                                 }
@@ -220,14 +228,14 @@ ezDefine("Parser", function (exports) {
                     "'": function () {
                         ({
                             "Scope": function () {
-                                if (attributeName.length) throw SyntaxError("Attribute name cannot include quotes, at index " + index);
+                                if (attributeName.length) throw createError("Attribute name cannot include quotes ");
                                 var attributeNames = Object.keys(scope.attributes);
-                                if (!attributeNames.length) throw SyntaxError("Invalid character ''' at index " + index);
+                                if (!attributeNames.length) throw createError("Invalid character '''  ");
                                 var name = attributeNames.pop();
                                 if (scope.attributes[name] === undefined) {
                                     scope.attributes[name] = [pageText[index]];
                                 } else if (scope.attributes[name]) {
-                                    if (scope.attributes[name][0] !== pageText[index]) throw SyntaxError("Invalid closing character, at index " + index);
+                                    if (scope.attributes[name][0] !== pageText[index]) throw createError("Invalid closing character ");
                                     scope.attributes[name].shift();
                                     scope.attributes[name] = scope.attributes[name].join("");
                                 }
@@ -241,9 +249,9 @@ ezDefine("Parser", function (exports) {
                 };
                 (letterMap[pageText[index]] || onDefault).call(letterMap);
             }
-            index += 1;
+            _.index += 1;
         }
-        if (scope.parent) throw SyntaxError("HTML hasn't been properly closed");
+        if (scope.parent) throw createError("HTML hasn't been properly closed");
         return scope;
 
         function onDefault() {
@@ -263,7 +271,19 @@ ezDefine("Parser", function (exports) {
         }
 
         function syntax() {
-            throw SyntaxError("Error at index " + index + " '" + pageText.substring(index - 5, index + 5) + "'");
+            throw createError("Unknown syntax ('" + pageText.substring(index - 5, index + 5) + "')");
+        }
+
+
+        /**
+         * Creates and returns a syntax error
+         * @param {string} message error message
+         * @returns {SyntaxError}
+         */
+        function createError(message) {
+            var error = new SyntaxError(message);
+            error.stack = "SyntaxError: " + message + "\n    at " + fileName + ":" + lineNumber + ":" + columnNumber;
+            return error;
         }
     }
 

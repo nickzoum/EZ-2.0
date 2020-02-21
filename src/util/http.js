@@ -1,3 +1,5 @@
+if (undefined) var { Mutation } = require("../ez");
+
 ezDefine("Http", function (exports) {
     "use strict";
 
@@ -76,7 +78,7 @@ ezDefine("Http", function (exports) {
         /** @type {XMLHttpRequest} */
         var request;
         var progressList = [];
-        var promise = new Promise(function (resolve, reject) {
+        var promise = new Promise(function HttpPromise(resolve, reject) {
             request = createCORSRequest(method, url);
             if (request) {
                 request.withCredentials = "withCredentials" in options ? options.withCredentials : defaults.withCredentials;
@@ -98,23 +100,18 @@ ezDefine("Http", function (exports) {
                 reject("CORS not supported");
             }
         });
-        var result = {};
-        result.then = function () { promise.then.apply(promise, arguments); return result; };
-        result.catch = function () { promise.catch.apply(promise, arguments); return result; };
-        result.finally = function () { promise.finally.apply(promise, arguments); return result; };
-        result.abort = function () {
+        Mutation.setValue(promise, "abort", function () {
             if (request) {
                 request.cancelled = true;
                 request.abort();
-            } return result;
-        };
-        result.addProgressListener = function (callBack) {
+            } return promise;
+        });
+        Mutation.setValue(promise, "addProgressListener", function (callBack) {
             if (typeof callBack === "function") progressList.push(callBack);
             else throw Error("A progress listener can only be a function");
-            return result;
-        };
-        result.promise = promise;
-        return result;
+            return promise;
+        });
+        return promise;
     }
 
     /**
