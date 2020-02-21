@@ -1,5 +1,7 @@
 if (undefined) var { Mutation } = require("../ez");
 
+/** @typedef {require("../ez")} JSDoc */
+
 ezDefine("Http", function (exports) {
     "use strict";
 
@@ -17,6 +19,7 @@ ezDefine("Http", function (exports) {
     exports.getCookieByName = getCookieByName;
     exports.setCookie = setCookie;
     exports.delete = _delete;
+    exports.socket = socket;
     exports.post = post;
     exports.put = put;
     exports.get = get;
@@ -26,7 +29,7 @@ ezDefine("Http", function (exports) {
      * Sends a get request
      * @param {string} url Where the request is going to be sent
      * @param {HttpOptions} options optional options for the request / headers
-     * @returns {Promise<string>} Promise that is activated when the request is loaded
+     * @returns {JSDoc.Http.RequestPromise} Promise that is activated when the request is loaded
      */
     function get(url, options) {
         return abstractRequest("get", url, null, options);
@@ -37,7 +40,7 @@ ezDefine("Http", function (exports) {
      * @param {string} url Where the request is going to be sent
      * @param {Object} [data] The data that are going to be sent
      * @param {HttpOptions} options optional options for the request / headers
-     * @returns {Promise<string>} Promise that is activated when the request is loaded
+     * @returns {JSDoc.Http.RequestPromise} Promise that is activated when the request is loaded
      */
     function post(url, data, options) {
         return abstractRequest("post", url, data, options);
@@ -48,7 +51,7 @@ ezDefine("Http", function (exports) {
      * @param {string} url Where the request is going to be sent
      * @param {Object} [data] The data that are going to be sent
      * @param {HttpOptions} options optional options for the request / headers
-     * @returns {Promise<string>} Promise that is activated when the request is loaded
+     * @returns {JSDoc.Http.RequestPromise} Promise that is activated when the request is loaded
      */
     function put(url, data, options) {
         return abstractRequest("put", url, data, options);
@@ -58,7 +61,7 @@ ezDefine("Http", function (exports) {
      * Sends a delete request
      * @param {string} url Where the request is going to be sent
      * @param {HttpOptions} options optional options for the request / headers
-     * @returns {Promise<string>} Promise that is activated when the request is loaded
+     * @returns {JSDoc.Http.RequestPromise} Promise that is activated when the request is loaded
      */
     function _delete(url, options) {
         return abstractRequest("delete", url, null, options);
@@ -70,7 +73,7 @@ ezDefine("Http", function (exports) {
      * @param {string} url where the request is going to be sent
      * @param {Object} [data] data to be sent
      * @param {HttpOptions} options optional options for the request / headers
-     * @returns {Promise<string>} Promise that is activated when the request is loaded
+     * @returns {JSDoc.Http.RequestPromise} Promise that is activated when the request is loaded
      */
     function abstractRequest(method, url, data, options) {
         if (typeof options !== "object" || options === null) options = {};
@@ -189,5 +192,64 @@ ezDefine("Http", function (exports) {
             deleteCookieByName(cookie.split("=")[0].replace(/^\s+/g, "").replace(/\s+$/g, ""));
         });
     }
+
+    /**
+     * Creates a new socket
+     * @param {string} url socket endpoint
+     * @returns {JSDoc.Http.SocketPromise} The created socket
+     */
+    function socket(url) {
+        /** @type {WebSocket} */
+        var socket;
+        /** @type {Array<() => void>} */
+        var messageCBList = [];
+        /** @type {Array<() => void>} */
+        var closeCBList = [], isClosed = false;
+        var promise = new Promise(function (res, rej) {
+            resolve = res; reject = rej;
+            try { socket = new WebSocket(url); } catch (err) { reject(err); }
+            socket.onopen = function () { resolve(); };
+            socket.onerror = function () { reject(); };
+            socket.onmessage = function (result) { callList(messageCBList, result.data); };
+            socket.onclose = function () { isClosed = true; callList(closeCBList); };
+        });
+        Mutation.setValue(promise, "close", function () {
+            try { if (socket) socket.close(); }
+            catch (err) { reject(err); }
+            return promise;
+        });
+        Mutation.setValue(promise, "addListener", function (callBack) {
+            if (typeof callBack === "function") messageCBList.push(callBack);
+            return promise;
+        });
+        Mutation.setValue(promise, "onClose", function (callBack) {
+            if (typeof callBack === "function") {
+                if (isClosed) callList([callBack]);
+                closeCBList.push(callBack);
+            }
+            return promise;
+        });
+
+        return promise;
+
+        function resolve() { }
+        function reject() { }
+
+        /**
+         * @param {Array<() => void>} list 
+         * @param {...Array<*>} arguments 
+         * @returns {void} 
+         */
+        function callList(list) {
+            var params = [].slice.call(arguments, 1);
+            try {
+                list.forEach(function (cb) {
+                    cb.apply(null, params);
+                });
+            } catch (err) { reject(err); }
+        }
+    }
+
+
 
 });

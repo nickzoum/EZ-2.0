@@ -3,9 +3,11 @@ if (undefined) var { Enumerables } = require("../ez");
 ezDefine("Util", function (exports) {
     "use strict";
 
-    var protoToSkip = Object.getPrototypeOf({});
+    var protoToSkip = Object.getPrototypeOf({}), browserName;
 
     exports.getPrototypeChain = getPrototypeChain;
+    exports.getBrowserName = getBrowserName;
+    exports.createError = createError;
     exports.startsWith = startsWith;
     exports.getModel = getModel;
     exports.empty = empty;
@@ -137,6 +139,60 @@ ezDefine("Util", function (exports) {
                 }, {});
             }
         }[typeof prototype] || function () { throw Error("Unknown type " + typeof prototype); })();
+    }
+
+    /**
+     * Gets the name of the browser
+     * @returns {string}
+     */
+    function getBrowserName() {
+        if (browserName) return browserName;
+        var browserInfo = navigator.userAgent;
+        var browserMap = {
+            "Edge": "Edge",
+            "Chrome": "Chrome",
+            "Firefox": "Firefox",
+            "Safari": "Safari",
+            "MSIE": "MSIE"
+        };
+        for (var key in browserMap) if (browserInfo.includes(key)) return browserName = browserMap[key], browserName;
+        return browserName = "MSIE", browserName;
+    }
+
+    /**
+     * 
+     * @template {ErrorConstructor} E type of error
+     * @param {E} type error constructor
+     * @param {string} message error description
+     * @param {string} [fileName='anonymous'] name of file that caused the error
+     * @param {number} [lineNumber=1] line in of the above file that caused the error
+     * @param {number} [columnNumber=1] character of the above line that caused the error
+     * @returns {E}
+     */
+    function createError(type, message, fileName, lineNumber, columnNumber) {
+        fileName = typeof fileName === "string" && fileName ? fileName : "anonymous";
+        lineNumber = Math.max(lineNumber | 0, 1); columnNumber = Math.max(columnNumber | 0, 1);
+        if (typeof type !== "function") throw new Error("Invalid error type '" + type + "'");
+        var error = new type(message);
+        var browserMap = {
+            "Chrome": function () {
+                error.stack = type.name + ": " + message + "\n    at " + fileName + ":" + lineNumber;
+            },
+            "Firefox": function () {
+                error.stack = "@" + fileName + ":" + lineNumber;
+            },
+            "MSIE": function () { },
+            "Edge": function () {
+
+                error.stack = type.name + ": " + message + " at " + "(" + fileName + ":" + lineNumber + ":" + columnNumber + ")";
+            },
+            "Safari": function () {
+                // TODO check
+                error.stack = type.name + ": " + message + "\n    at " + fileName + ":" + lineNumber + ":" + columnNumber;
+            }
+        };
+        browserMap[getBrowserName()]();
+        return error;
     }
 
 });

@@ -68,8 +68,8 @@ ezDefine("Parser", function (exports) {
             get: function () { return index; },
             set: function (newValue) { columnNumber += newValue - index; index = newValue; }
         }); index = Math.max(index | 0, 0);
-        lineNumber = Math.min(lineNumber | 0, 1);
-        columnNumber = Math.min(columnNumber | 0, 1);
+        lineNumber = Math.max(lineNumber | 0, 1);
+        columnNumber = Math.max(columnNumber | 0, 1);
         fileName = fileName ? String(fileName) : "anonymous";
         var startCharacter = pageText[index - 1];
         if (startCharacter === "{") startCharacter = "}";
@@ -754,9 +754,7 @@ ezDefine("Parser", function (exports) {
          * @returns {SyntaxError}
          */
         function createError(message) {
-            var error = new SyntaxError(message);
-            error.stack = "SyntaxError: " + message + "\n    at " + fileName + ":" + lineNumber + ":" + columnNumber;
-            return error;
+            return Util.createError(SyntaxError, message, fileName, lineNumber, columnNumber);
         }
     }
 

@@ -25,7 +25,6 @@ export namespace Util {
      */
     function startsWith(fullText: string, startingIndex: number, searchingFor: string): boolean;
 
-
     /**
      * Gets a specified object from a json
      * @param {T} prototype specified object prototype
@@ -35,23 +34,42 @@ export namespace Util {
      */
     function getModel<T>(prototype: T, json: string | T): T;
 
-
     /**
      * Gets the prototype chain of an object
      * @param {Object} obj Object to get the chain from
      * @returns {Array<Object>} Prototype chain
      */
     function getPrototypeChain(obj: Object): Object;
+
+    /**
+     * Gets the name of the browser
+     * @returns {string}
+     */
+    function getBrowserName(): string;
+
+    /**
+     * 
+     * @template {ErrorConstructor} E type of error
+     * @param {E} type error constructor
+     * @param {string} message error description
+     * @param {string} [fileName='anonymous'] name of file that caused the error
+     * @param {number} [lineNumber=1] line in of the above file that caused the error
+     * @param {number} [columnNumber=1] character of the above line that caused the error
+     * @returns {E}
+     */
+    function createError<E extends ErrorConstructor>(type: E, message: string, fileName?: string, lineNumber?: number, columnNumber?: number): E;
 }
 
 export namespace Http {
-    interface RequestPromise {
+    interface RequestPromise extends Promise {
         addProgressListener: (callBack: (event: ProgressEvent<EventTarget>) => void) => RequestPromise;
-        then: (onDone: (result: string) => void) => RequestPromise;
-        catch: (onError: (error: string) => void) => RequestPromise;
-        finally: (onDone: () => void) => RequestPromise;
         abort: () => RequestPromise;
-        promise: Promise<string>;
+    }
+
+    interface SocketPromise extends Promise {
+        addListener: (callBack: (data: string) => void) => SocketPromise;
+        onClose: (callBack: () => void) => SocketPromise;
+        close: () => SocketPromise;
     }
 
     /**
@@ -103,6 +121,14 @@ export namespace Http {
      * @returns {RequestPromise} Promise that is activated when the request is loaded
      */
     function put(url: string, data?: Object, options?: HttpOptions): RequestPromise;
+
+
+    /**
+     * Creates a new socket
+     * @param {string} url socket endpoint
+     * @returns {Http.SocketPromise} The created socket
+     */
+    function socket(url: string): SocketPromise;
 }
 
 export class Http {

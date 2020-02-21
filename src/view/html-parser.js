@@ -281,9 +281,7 @@ ezDefine("Parser", function (exports) {
          * @returns {SyntaxError}
          */
         function createError(message) {
-            var error = new SyntaxError(message);
-            error.stack = "SyntaxError: " + message + "\n    at " + fileName + ":" + lineNumber + ":" + columnNumber;
-            return error;
+            return Util.createError(SyntaxError, message, fileName, lineNumber, columnNumber);
         }
     }
 
