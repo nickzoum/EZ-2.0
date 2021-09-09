@@ -48,7 +48,10 @@ ezDefine("Expressions", function (exports) {
         if (typeof scope !== "object" || scope === null) scope = Object.create(null);
         try {
             var result = evaluateValue(controller, expression, scope);
-            return "format" in expression ? Formatting.format(result, evaluateValue(controller, expression.format, scope)) : result;
+            if ("format" in expression) result = Formatting.format.apply(null, [result].concat(expression.format.map(function (format) {
+                return evaluateValue(controller, format, scope);
+            })));
+            return result;
         } catch (err) {
             var actionMap = {
                 "Parameter": function () {

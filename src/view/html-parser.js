@@ -191,16 +191,16 @@ ezDefine("Parser", function (exports) {
                                 if (pageText[index + 1] === "{") {
                                     index += 2;
                                     var newScopes = Parser.parseExpression(pageText, index, lineNumber, columnNumber, fileName);
-                                    ([
-                                        function () {
-                                            _.index = newScopes[0].end;
-                                        },
-                                        function () {
-                                            _.index = newScopes[1].end;
-                                            newScopes[0].format = newScopes[1];
-                                            newScopes[1].parent = newScopes[0];
-                                        }
-                                    ][newScopes.length - 1] || syntax)();
+                                    if (newScopes.length > 1) {
+                                        newScopes[0].format = newScopes.reduce(function (result, item, index) {
+                                            _.index = item.end;
+                                            if (index) {
+                                                result.push(item);
+                                                item.parent = newScopes[0];
+                                            }
+                                            return result;
+                                        }, []);
+                                    } else _.index = newScopes[0].end;
                                     scope.content.push(newScopes[0]);
                                     newScopes[0].parent = scope;
                                 }

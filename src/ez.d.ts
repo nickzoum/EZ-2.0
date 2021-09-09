@@ -61,12 +61,12 @@ export namespace Util {
 }
 
 export namespace Http {
-    interface RequestPromise extends Promise {
+    interface RequestPromise extends Promise<string> {
         addProgressListener: (callBack: (event: ProgressEvent<EventTarget>) => void) => RequestPromise;
         abort: () => RequestPromise;
     }
 
-    interface SocketPromise extends Promise {
+    interface SocketPromise extends Promise<string> {
         addListener: (callBack: (data: string) => void) => SocketPromise;
         onClose: (callBack: () => void) => SocketPromise;
         close: () => SocketPromise;

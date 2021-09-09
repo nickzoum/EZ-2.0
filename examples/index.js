@@ -1,25 +1,26 @@
 if (undefined) var { View } = require("../src/ez");
 
 
-View.registerView("test", "<other ez-loop=\"key in list\" ez-pass=\"list[key].data\" />", {
+View.registerView("test", `
+<div ez-loop="key in list">
+  <div ez-loop="index in list[key]">
+  <button ez-on-click="inc(key, index)">\${list[key][index]}</button>    
+  </div>
+</div>
+<div ez-loop="key in list">
+  <div ez-loop="index in list[key]">
+\${list[key][index]}   
+  </div>
+</div>
+\${list, "json"}
+\${list.a, "json"}
+`, {
     list: {
-        a: {
-            data: [1, 2, 3]
-        },
-        b: {
-            data: [4, 5, 6]
-        }
+        a: [1, 2, 3],
+        b: [4, 5, 6]
     },
-    onLoad: function () {
-        var self = this;
-
-        setTimeout(function () {
-        }, 2000);
-    }
-});
-
-View.registerView("other", "", {
-    construct: function (text) {
-        console.log(text);
+    inc: function (key, index) {
+        this.list[key][index] += 1;
+        this.list[key].splice();
     }
 });

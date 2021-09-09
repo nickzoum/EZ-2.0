@@ -206,6 +206,7 @@ ezDefine("Http", function (exports) {
         /** @type {Array<() => void>} */
         var closeCBList = [], isClosed = false;
         var promise = new Promise(function (res, rej) {
+            // eslint-disable-next-line no-func-assign
             resolve = res; reject = rej;
             try { socket = new WebSocket(url); } catch (err) { reject(err); }
             socket.onopen = function () { resolve(); };

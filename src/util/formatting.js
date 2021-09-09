@@ -184,6 +184,7 @@ ezDefine("Formatting", function (exports) {
      * @returns {string} string form of requested date
      */
     function dateToString(date, format) {
+        if (typeof date === "number") date = new Date(date);
         date = date instanceof Date && !isNaN(date.valueOf()) ? date : new Date();
         format = format && (typeof format == "string") ? format : "HH:mm dd/MM/yy";
         var year = String(date.getFullYear());
@@ -263,12 +264,15 @@ ezDefine("Formatting", function (exports) {
     var formatMap = {
         "object": function (item, format) {
             if (item === null) return "";
-            if (item instanceof Date) {
-                return dateToString(item, format);
-            } else if (item instanceof Array) {
-                return item.join(format);
-            }
+            if (item instanceof Date) return this.Date(item, format);
+            if (item instanceof Array) return this.Array(item, format);
             return JSON.stringify(item);
+        },
+        "Array": function (item, format) {
+            return [].join.call(item, format);
+        },
+        "Date": function (item, format) {
+            return dateToString(item, format);
         },
         "string": function (item) {
             return item;
@@ -308,10 +312,13 @@ ezDefine("Formatting", function (exports) {
      * Formats a value to string
      * @param {*} item value
      * @param {string} format format of value
+     * @param {string} [type] what the value should be parsed as
      * @returns {string} formatted value
      */
-    function format(item, format) {
+    function format(item, format, type) {
+        if (type === "Date") console.log(arguments);
         if (format === "json") return JSON.stringify(item);
-        return formatMap[typeof item](item, format);
+        type = typeof type === "string" && type in formatMap ? type : typeof item;
+        return formatMap[type](item, format);
     }
 });
