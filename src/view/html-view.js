@@ -481,6 +481,7 @@ ezDefine("View", function (exports) {
                 Mutation.setTree(text, idCounter);
                 text.textContent = Expressions.evaluateValue(controller, tree, scopes[scopeID]);
                 addDependencies(dependencies, tree.dependencies, text, replaceScope, scopeID);
+                Mutation.setValue(text, "scopeID", scopeID);
                 return text;
             }
         }[tree.type])();
