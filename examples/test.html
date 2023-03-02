@@ -1,1 +1,30 @@
-<other ez-loop="key in list" ez-pass="key, list[key].data" />
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Testing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+
+<body>
+    <script type="text/javascript" src="../build/ez.js"></script>
+    <div>START</div>
+    <other></other>
+    <div>END</div>
+    <script type="text/javascript" src="./index.js"></script>
+    <script>
+        View.registerURL("other", "other.html", {
+            list: {
+                a: [1, 2, 3],
+                b: [4, 5, 6]
+            },
+            inc: function (key, index, x) {
+                console.log(x);
+                this.list[key][index] += 1;
+                this.list[key].splice();
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,13 @@
+<div ez-loop="key in list">
+    ${key}
+    <div ez-loop="index in list[key]">
+        <button ez-on-click="inc(key, index)">${list[key][index]}</button>
+    </div>
+</div>
+<div ez-loop="key in list">
+    <div ez-loop="index in list[key]">
+        ${list[key][index]}
+    </div>
+</div>
+${list, "json"}
+${list.a, "json"}
